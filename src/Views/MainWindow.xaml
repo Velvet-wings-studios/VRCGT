@@ -1,4 +1,10 @@
-<Window x:Class="VRCGroupTools.Views.MainWindow"
+<TextBlock HorizontalAlignment="Center" FontSize="10">
+    <Run Text="VRCGT repaired By " Foreground="#555"/><Hyperlink NavigateUri="https://vrchat.com/home/user/usr_8ed12f82-595c-4586-9838-b2d9038f3dd7" 
+               RequestNavigate="Hyperlink_RequestNavigate"
+               Foreground="#7C4DFF">Raven</Hyperlink><Run Text=" - " Foreground="#555"/><Hyperlink NavigateUri="https://github.com/Velvet-wings-studios/VRCGT" 
+               RequestNavigate="Hyperlink_RequestNavigate"
+               Foreground="#7C4DFF">GitHub</Hyperlink>
+</TextBlock><Window x:Class="VRCGroupTools.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
@@ -300,14 +306,20 @@
                                 Foreground="#F44336"/>
                         
                         <!-- Footer Credits -->
-                        <Border Grid.Row="4" VerticalAlignment="Bottom" Margin="0,0,0,5">
-                            <TextBlock HorizontalAlignment="Center" FontSize="10">
-                                <Run Text="VRCGT repaired by " Foreground="#555"/><Hyperlink NavigateUri="https://vrchat.com/home/user/usr_8ed12f82-595c-4586-9838-b2d9038f3dd7" 
-                                           RequestNavigate="Hyperlink_RequestNavigate"
-                                           Foreground="#7C4DFF">Raven</Hyperlink><Run Text=" - " Foreground="#555"/><Hyperlink NavigateUri="https://github.com/Velvet-wings-studios/VRCGT 
-                                           RequestNavigate="Hyperlink_RequestNavigate"
-                                           Foreground="#7C4DFF">GitHub</Hyperlink>
-                            </TextBlock>
+                        <TextBlock HorizontalAlignment="Center" FontSize="10">
+                            <Run Text="VRCGT repaired by " Foreground="#555"/>
+                            <Hyperlink NavigateUri="https://vrchat.com/home/user/usr_8ed12f82-595c-4586-9838-b2d9038f3dd7"
+                                       RequestNavigate="Hyperlink_RequestNavigate"
+                                       Foreground="#7C4DFF">
+                                Raven
+                                </Hyperlink>
+                            <Run Text=" - " Foreground="#555"/>
+                            <Hyperlink NavigateUri="https://github.com/Velvet-wings-studios/VRCGT"
+                                       RequestNavigate="Hyperlink_RequestNavigate"
+                                       Foreground="#7C4DFF">
+                                GitHub
+                                    </Hyperlink>
+                                </TextBlock>
                         </Border>
                     </Grid>
                 </Border>
