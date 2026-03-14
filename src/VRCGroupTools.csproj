@@ -10,17 +10,17 @@
     <AssemblyName>VRCGroupTools</AssemblyName>
     <DefineConstants>DEBUG</DefineConstants>
     <RootNamespace>VRCGroupTools</RootNamespace>
-    <Version>1.1.8</Version>
+    <Version>1.1.9</Version>
     <AssemblyVersion>1.1.8.0</AssemblyVersion>
     <FileVersion>1.1.8.0</FileVersion>
     <Company>0xE69</Company>
     <Product>VRC Group Tools</Product>
     <Authors>0xE69</Authors>
-    <Description>VRChat Group Management Tools with 18+ Badge Scanner</Description>
+    <Description>VRChat Group Management Tools with 18+ Badge Scanner made by 0xE69 Edited by Raven to fix bugs</Description>
     <Copyright>Copyright © 2025</Copyright>
-    <RepositoryUrl>https://github.com/0xE69/VRCGT</RepositoryUrl>
+    <RepositoryUrl>https://github.com/Velvet-wings-studios/VRCGT/</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageProjectUrl>https://github.com/0xE69/VRCGT</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/Velvet-wings-studios/VRCGT/</PackageProjectUrl>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
