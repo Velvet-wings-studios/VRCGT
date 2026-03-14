@@ -345,6 +345,19 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ---
 
 ## 📋 Changelog
+##v1.2.1 (2026-03-14)
+
+**Discord webhook compatability**
+
+-Repaired the discord webhook sending functionality while keeping the original settings of not sending logs that were already archived
+
+-Properly tracks if people accepted a invite(will say who in the future) tho just having a invite it triggers it to say they accepted it due to limitations on vrc side
+
+-Fixed application auto update (hopefully)
+
+-Kept credits to original maker while adding in my self to say i helped fix it
+
+-updated database and application to log invites to users if the database somehow looses connection it will fallback to keeping the invite logs in memory untill connection is reastablished
 
 ### v1.1.5 (2026-01-26)
 **🔒 Security Enhancements & Auto Closer**
