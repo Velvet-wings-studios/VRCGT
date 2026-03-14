@@ -257,7 +257,7 @@ The application is:
 ### Quick Build
 ```cmd
 :: Clone the repository
-git clone https://github.com/0xE69/VRCGT.git
+git clone https://github.com/Velvet-wings-studios/VRCGT.git
 cd VRCGT
 
 :: Run the build script
@@ -442,6 +442,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 🙏 Acknowledgments
 
+- 0xE69 for original code
 - VRChat community for feedback and testing
 - Material Design In XAML for UI components
 - All contributors and supporters
