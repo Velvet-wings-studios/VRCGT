@@ -304,7 +304,7 @@
                             <TextBlock HorizontalAlignment="Center" FontSize="10">
                                 <Run Text="VRCGT repaired by " Foreground="#555"/><Hyperlink NavigateUri="https://vrchat.com/home/user/usr_8ed12f82-595c-4586-9838-b2d9038f3dd7" 
                                            RequestNavigate="Hyperlink_RequestNavigate"
-                                           Foreground="#7C4DFF">Raven</Hyperlink><Run Text=" - " Foreground="#555"/><Hyperlink NavigateUri="https://github.com/Velvet-wings-studios/VRCGT 
+                                           Foreground="#7C4DFF">Raven</Hyperlink><Run Text=" - " Foreground="#555"/><Hyperlink NavigateUri="https://github.com/Velvet-wings-studios/VRCGT" 
                                            RequestNavigate="Hyperlink_RequestNavigate"
                                            Foreground="#7C4DFF">GitHub</Hyperlink>
                             </TextBlock>
