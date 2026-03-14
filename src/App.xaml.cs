@@ -42,7 +42,7 @@ public partial class App : Application
         LoggingService.Info("APP", "==================================================");
         LoggingService.Info("APP", $"  VRC Group Tools v{Version} - Starting");
         LoggingService.Info("APP", "==================================================");
-
+						LoggingService.Info("APP", $"GitHubRepo in use: {GitHubRepo}");
         try
         {
             var services = new ServiceCollection();

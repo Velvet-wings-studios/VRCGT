@@ -231,10 +231,16 @@
                         Pĩxęlㄔღ
                     </Hyperlink>
                     <Run Text=" - " Foreground="#666"/>
-                    <Hyperlink NavigateUri="https://github.com/0xE69/VRCGT" 
+                    <Hyperlink NavigateUri="https://github.com/Velvet-wings-studios/VRCGT" 
                                RequestNavigate="Hyperlink_RequestNavigate"
                                Foreground="#7C4DFF">
                         GitHub
+                    </Hyperlink>
+                    <Run Text="-Fixed by " Foreground="#666"/>
+                    <Hyperlink NavigateUri="https://vrchat.com/home/user/usr_8ed12f82-595c-4586-9838-b2d9038f3dd7" 
+                               RequestNavigate="Hyperlink_RequestNavigate"
+                               Foreground="#7C4DFF">
+                        Raven
                     </Hyperlink>
                 </TextBlock>
             </Border>

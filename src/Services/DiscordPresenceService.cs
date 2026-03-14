@@ -17,7 +17,7 @@ public class DiscordPresenceService : IDiscordPresenceService
     private DiscordRpcClient? _client;
     private bool _started;
 
-    private const string RepoUrl = "https://github.com/0xE69/VRCGT";
+    private const string RepoUrl = "https://github.com/Velvet-wings-studios/VRCGT";
 
     public DiscordPresenceService(ISettingsService settingsService)
     {
