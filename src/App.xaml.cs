@@ -26,7 +26,7 @@ public partial class App : Application
 
     public static IServiceProvider Services { get; private set; } = null!;
     public static string Version => "1.1.8";
-    public static string GitHubRepo => "0xE69/VRCGT";
+    public static string GitHubRepo => "Velvet-wings-studios/VRCGT";
     public static string BindingLogPath { get; private set; } = string.Empty;
 
     protected override async void OnStartup(StartupEventArgs e)
