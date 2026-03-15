@@ -5,7 +5,7 @@ Detatched from repository to work on it faster with programs,   original reposit
 
 A powerful desktop toolkit for VRChat group owners and moderators. Fast login, rich group insights, member management, posts, calendar events, invites, audit logs, Discord webhooks, and more—all in one modern WPF app.
 
-![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4) ![Windows](https://img.shields.io/badge/Platform-Windows-0078D6) ![License](https://img.shields.io/badge/License-MIT-green) ![Build](https://img.shields.io/github/actions/workflow/status/0xE69/VRCGT/build.yml?branch=main)
+![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4) ![Windows](https://img.shields.io/badge/Platform-Windows-0078D6) ![License](https://img.shields.io/badge/License-MIT-green) ![Build](https://img.shields.io/github/actions/workflow/status/Velvet-wings-studios/VRCGT/build.yml?branch=main)
 
 ---
 
@@ -257,7 +257,7 @@ The application is:
 ### Quick Build
 ```cmd
 :: Clone the repository
-git clone https://github.com/0xE69/VRCGT.git
+git clone https://github.com/Velvet-wings-studios/VRCGT.git
 cd VRCGT
 
 :: Run the build script
@@ -345,6 +345,19 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ---
 
 ## 📋 Changelog
+##v1.2.1 (2026-03-14)
+
+**Discord webhook compatability**
+
+-Repaired the discord webhook sending functionality while keeping the original settings of not sending logs that were already archived
+
+-Properly tracks if people accepted a invite(will say who in the future) tho just having a invite it triggers it to say they accepted it due to limitations on vrc side
+
+-Fixed application auto update (hopefully)
+
+-Kept credits to original maker while adding in my self to say i helped fix it
+
+-updated database and application to log invites to users if the database somehow looses connection it will fallback to keeping the invite logs in memory untill connection is reastablished
 
 ### v1.1.5 (2026-01-26)
 **🔒 Security Enhancements & Auto Closer**
@@ -442,6 +455,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 🙏 Acknowledgments
 
+- 0xE69 for original code
 - VRChat community for feedback and testing
 - Material Design In XAML for UI components
 - All contributors and supporters
