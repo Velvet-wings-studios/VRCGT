@@ -1,10 +1,4 @@
-<TextBlock HorizontalAlignment="Center" FontSize="10">
-    <Run Text="VRCGT repaired By " Foreground="#555"/><Hyperlink NavigateUri="https://vrchat.com/home/user/usr_8ed12f82-595c-4586-9838-b2d9038f3dd7" 
-               RequestNavigate="Hyperlink_RequestNavigate"
-               Foreground="#7C4DFF">Raven</Hyperlink><Run Text=" - " Foreground="#555"/><Hyperlink NavigateUri="https://github.com/Velvet-wings-studios/VRCGT" 
-               RequestNavigate="Hyperlink_RequestNavigate"
-               Foreground="#7C4DFF">GitHub</Hyperlink>
-</TextBlock><Window x:Class="VRCGroupTools.Views.MainWindow"
+<Window x:Class="VRCGroupTools.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
@@ -183,7 +177,7 @@
                                         Height="40"
                                         Margin="0,0,0,5"
                                         Style="{StaticResource MaterialDesignFlatButton}"
-                                        Foreground="White"/>                                    <Button Content="�  Inviter Hub"
+                                        Foreground="White"/>                                    <Button Content="📨  Inviter Hub"
                                         Command="{Binding SelectModuleCommand}"
                                         CommandParameter="InviterHub"
                                         HorizontalContentAlignment="Left"
@@ -274,7 +268,7 @@
                                         Style="{StaticResource MaterialDesignFlatButton}"
                                         Foreground="#FFC107"
                                         FontWeight="SemiBold"/>
-                                <Button Content="�  Auto Closer"
+                                <Button Content="⏱️  Auto Closer"
                                         Command="{Binding SelectModuleCommand}"
                                         CommandParameter="AutoCloser"
                                         HorizontalContentAlignment="Left"
@@ -283,7 +277,7 @@
                                         Style="{StaticResource MaterialDesignFlatButton}"
                                         Foreground="#FF9800"
                                         FontWeight="SemiBold"/>
-                                <Button Content="�🚨  Kill Switch"
+                                <Button Content="🚨  Kill Switch"
                                         Command="{Binding SelectModuleCommand}"
                                         CommandParameter="KillSwitch"
                                         HorizontalContentAlignment="Left"
@@ -306,21 +300,25 @@
                                 Foreground="#F44336"/>
                         
                         <!-- Footer Credits -->
-                        <TextBlock HorizontalAlignment="Center" FontSize="10">
-                            <Run Text="VRCGT repaired by " Foreground="#555"/>
-                            <Hyperlink NavigateUri="https://vrchat.com/home/user/usr_8ed12f82-595c-4586-9838-b2d9038f3dd7"
-                                       RequestNavigate="Hyperlink_RequestNavigate"
-                                       Foreground="#7C4DFF">
-                                Raven
-                                </Hyperlink>
-                            <Run Text=" - " Foreground="#555"/>
-                            <Hyperlink NavigateUri="https://github.com/Velvet-wings-studios/VRCGT"
-                                       RequestNavigate="Hyperlink_RequestNavigate"
-                                       Foreground="#7C4DFF">
-                                GitHub
-                                    </Hyperlink>
-                                </TextBlock>
-                        </Border>
+                        <Border Grid.Row="4" VerticalAlignment="Bottom" Margin="0,0,0,5">
+							<TextBlock HorizontalAlignment="Center" FontSize="10">
+								<Run Text="VRCGT repaired by " Foreground="#555"/>
+
+								<Hyperlink NavigateUri="https://vrchat.com/home/user/usr_8ed12f82-595c-4586-9838-b2d9038f3dd7"
+										   RequestNavigate="Hyperlink_RequestNavigate"
+										   Foreground="#7C4DFF">
+									Raven
+								</Hyperlink>
+
+								<Run Text=" - " Foreground="#555"/>
+
+								<Hyperlink NavigateUri="https://github.com/Velvet-wings-studios/VRCGT"
+										   RequestNavigate="Hyperlink_RequestNavigate"
+										   Foreground="#7C4DFF">
+									GitHub
+								</Hyperlink>
+							</TextBlock>
+						</Border>
                     </Grid>
                 </Border>
                 

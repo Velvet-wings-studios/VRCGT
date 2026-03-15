@@ -190,23 +190,37 @@
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Version:" Foreground="#AAA" Margin="0,0,0,8"/>
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AppVersion}" Foreground="White" Margin="0,0,0,8"/>
                         
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Latest Version:" Foreground="#AAA" Margin="0,0,0,8"/>
-                        <TextBlock Grid.Row="1" Grid.Column="1" Foreground="#7C4DFF" Margin="0,0,0,8">
-                            <Hyperlink NavigateUri="{Binding RepositoryUrl}" Foreground="#7C4DFF">
-                                Check for updates
-                            </Hyperlink>
-                        </TextBlock>
+                        
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="0"
+                                   Text="Latest Version:"
+                                   Foreground="#AAA"
+                                   Margin="0,0,0,8"/>
+
+                        <Button Grid.Row="1"
+                                Grid.Column="1"
+                                Content="Check for updates"
+                                Command="{Binding CheckForUpdatesCommand}"
+                                Style="{StaticResource MaterialDesignFlatButton}"
+                                Foreground="#7C4DFF"
+                                HorizontalAlignment="Left"
+                                Padding="0"
+                                Margin="0,0,0,8"/>
                         
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Repository:" Foreground="#AAA" Margin="0,0,0,8"/>
                         <TextBlock Grid.Row="2" Grid.Column="1" Foreground="#7C4DFF" Margin="0,0,0,8">
-                            <Hyperlink NavigateUri="{Binding RepositoryUrl}" Foreground="#7C4DFF">
+                            <Hyperlink NavigateUri="{Binding RepositoryUrl}"
+                                       RequestNavigate="Hyperlink_RequestNavigate"
+                                       Foreground="#7C4DFF">
                                 GitHub Repository
                             </Hyperlink>
                         </TextBlock>
                         
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="Support:" Foreground="#AAA"/>
                         <TextBlock Grid.Row="3" Grid.Column="1" Foreground="#7C4DFF">
-                            <Hyperlink NavigateUri="{Binding SupportUrl}" Foreground="#7C4DFF">
+                            <Hyperlink NavigateUri="{Binding SupportUrl}"
+                                       RequestNavigate="Hyperlink_RequestNavigate"
+                                       Foreground="#7C4DFF">
                                 Get Help &amp; Support
                             </Hyperlink>
                         </TextBlock>
