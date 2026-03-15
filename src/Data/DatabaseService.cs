@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using VRCGroupTools.Data.Models;
+using System;
 
 namespace VRCGroupTools.Data;
 
@@ -24,8 +25,20 @@ public interface IDatabaseService
     Task MarkLogsAsSentToDiscordAsync(IEnumerable<string> auditLogIds);
 
     // Pending Invites (used to infer invite acceptance on join)
-    Task UpsertPendingInviteAsync(string groupId, string? targetUserId, string? targetName, string inviteLogId, DateTime invitedAtUtc);
-    Task<(bool Found, DateTime? InvitedAtUtc)> TryConsumePendingInviteAsync(string groupId, string? targetUserId, string? targetName);
+    
+Task UpsertPendingInviteAsync(
+    string groupId,
+    string? targetUserId,
+    string? targetName,
+    string? inviterId,
+    string? inviterName,
+    string inviteLogId,
+    DateTime invitedAtUtc);
+
+Task<(bool Found, DateTime? InvitedAtUtc, string? InviterId, string? InviterName)>
+    TryConsumePendingInviteAsync(string groupId, string? targetUserId, string? targetName);
+
+
     Task<int> CleanupExpiredPendingInvitesAsync(DateTime cutoffUtc);
 
     // Group Members
@@ -187,30 +200,80 @@ CREATE INDEX IF NOT EXISTS IX_MemberBackups_WasReInvited ON MemberBackups(WasReI
             }
 
             // Ensure PendingGroupInvites table exists (used to infer invite acceptance)
-            using var pendingInviteTableCheck = connection.CreateCommand();
-            pendingInviteTableCheck.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='PendingGroupInvites'";
-            var pendingInviteTableName = await pendingInviteTableCheck.ExecuteScalarAsync();
+using (var pendingInviteTableCheck = connection.CreateCommand())
+{
+    pendingInviteTableCheck.CommandText =
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='PendingGroupInvites'";
+    var pendingInviteTableName = await pendingInviteTableCheck.ExecuteScalarAsync();
 
-            if (pendingInviteTableName == null)
-            {
-                Console.WriteLine("[DATABASE] Creating PendingGroupInvites table...");
-                using var createPendingInvites = connection.CreateCommand();
-                createPendingInvites.CommandText = @"
+    if (pendingInviteTableName == null)
+    {
+        Console.WriteLine("[DATABASE] Creating PendingGroupInvites table...");
+        using var createPendingInvites = connection.CreateCommand();
+        createPendingInvites.CommandText = @"
 CREATE TABLE IF NOT EXISTS PendingGroupInvites (
     GroupId TEXT NOT NULL,
     TargetKey TEXT NOT NULL,
     TargetUserId TEXT,
     TargetName TEXT,
+    InviterId TEXT,
+    InviterName TEXT,
     InviteLogId TEXT NOT NULL,
     InvitedAtUtc TEXT NOT NULL,
     UpdatedAtUtc TEXT NOT NULL,
     PRIMARY KEY (GroupId, TargetKey)
 );
-CREATE INDEX IF NOT EXISTS IX_PendingGroupInvites_GroupId ON PendingGroupInvites(GroupId);
-CREATE INDEX IF NOT EXISTS IX_PendingGroupInvites_InvitedAtUtc ON PendingGroupInvites(InvitedAtUtc);
 ";
-                await createPendingInvites.ExecuteNonQueryAsync();
-                Console.WriteLine("[DATABASE] PendingGroupInvites table created successfully");
+        await createPendingInvites.ExecuteNonQueryAsync();
+        Console.WriteLine("[DATABASE] PendingGroupInvites table created successfully");
+    }
+}
+
+// Ensure inviter columns exist for older databases (and ensure indexes exist)
+bool hasInviterId = false;
+bool hasInviterName = false;
+
+using (var pendingColsCmd = connection.CreateCommand())
+{
+    pendingColsCmd.CommandText = "PRAGMA table_info(PendingGroupInvites)";
+    using var reader = await pendingColsCmd.ExecuteReaderAsync();
+    while (await reader.ReadAsync())
+    {
+        var col = reader.GetString(1);
+        if (col == "InviterId") hasInviterId = true;
+        if (col == "InviterName") hasInviterName = true;
+    }
+}
+
+if (!hasInviterId)
+{
+    using var alter = connection.CreateCommand();
+    alter.CommandText = "ALTER TABLE PendingGroupInvites ADD COLUMN InviterId TEXT NULL";
+    await alter.ExecuteNonQueryAsync();
+    Console.WriteLine("[DATABASE] Added InviterId to PendingGroupInvites");
+}
+
+if (!hasInviterName)
+{
+    using var alter = connection.CreateCommand();
+    alter.CommandText = "ALTER TABLE PendingGroupInvites ADD COLUMN InviterName TEXT NULL";
+    await alter.ExecuteNonQueryAsync();
+    Console.WriteLine("[DATABASE] Added InviterName to PendingGroupInvites");
+}
+
+using (var idx1 = connection.CreateCommand())
+{
+    idx1.CommandText =
+        "CREATE INDEX IF NOT EXISTS IX_PendingGroupInvites_GroupId ON PendingGroupInvites(GroupId)";
+    await idx1.ExecuteNonQueryAsync();
+}
+
+using (var idx2 = connection.CreateCommand())
+{
+    idx2.CommandText =
+        "CREATE INDEX IF NOT EXISTS IX_PendingGroupInvites_InvitedAtUtc ON PendingGroupInvites(InvitedAtUtc)";
+    await idx2.ExecuteNonQueryAsync();
+}
             }
         }
         catch (Exception ex)
@@ -377,119 +440,136 @@ CREATE INDEX IF NOT EXISTS IX_PendingGroupInvites_InvitedAtUtc ON PendingGroupIn
         return "name:" + name;
     }
 
-    public async Task UpsertPendingInviteAsync(string groupId, string? targetUserId, string? targetName, string inviteLogId, DateTime invitedAtUtc)
-    {
-        await InitializeAsync();
+    public async Task UpsertPendingInviteAsync(
+    string groupId,
+    string? targetUserId,
+    string? targetName,
+    string? inviterId,
+    string? inviterName,
+    string inviteLogId,
+    DateTime invitedAtUtc)
+{
+    await InitializeAsync();
 
-        using var context = new AppDbContext();
-        var connection = context.Database.GetDbConnection();
-        if (connection.State != System.Data.ConnectionState.Open)
-            await connection.OpenAsync();
+    using var context = new AppDbContext();
+    var connection = context.Database.GetDbConnection();
+    if (connection.State != System.Data.ConnectionState.Open)
+        await connection.OpenAsync();
 
-        var targetKey = ComputeTargetKey(targetUserId, targetName);
-        var invitedAtStr = invitedAtUtc.ToUniversalTime().ToString("o");
-        var nowStr = DateTime.UtcNow.ToString("o");
+    var targetKey = ComputeTargetKey(targetUserId, targetName);
+    var invitedAtStr = invitedAtUtc.ToUniversalTime().ToString("o");
+    var nowStr = DateTime.UtcNow.ToString("o");
 
-        using var cmd = connection.CreateCommand();
-        cmd.CommandText = @"
+    using var cmd = connection.CreateCommand();
+    cmd.CommandText = @"
 INSERT INTO PendingGroupInvites
-    (GroupId, TargetKey, TargetUserId, TargetName, InviteLogId, InvitedAtUtc, UpdatedAtUtc)
+    (GroupId, TargetKey, TargetUserId, TargetName, InviterId, InviterName, InviteLogId, InvitedAtUtc, UpdatedAtUtc)
 VALUES
-    ($groupId, $targetKey, $targetUserId, $targetName, $inviteLogId, $invitedAtUtc, $updatedAtUtc)
+    ($groupId, $targetKey, $targetUserId, $targetName, $inviterId, $inviterName, $inviteLogId, $invitedAtUtc, $updatedAtUtc)
 ON CONFLICT(GroupId, TargetKey) DO UPDATE SET
     TargetUserId = excluded.TargetUserId,
     TargetName   = excluded.TargetName,
+    InviterId    = excluded.InviterId,
+    InviterName  = excluded.InviterName,
     InviteLogId  = excluded.InviteLogId,
     InvitedAtUtc = excluded.InvitedAtUtc,
-    UpdatedAtUtc = excluded.UpdatedAtUtc;
+    UpdatedAtUtc = excluded.UpdatedAtUtc
+WHERE excluded.InvitedAtUtc >= PendingGroupInvites.InvitedAtUtc;
 ";
 
-        var p1 = cmd.CreateParameter(); p1.ParameterName = "$groupId"; p1.Value = groupId;
-        var p2 = cmd.CreateParameter(); p2.ParameterName = "$targetKey"; p2.Value = targetKey;
-        var p3 = cmd.CreateParameter(); p3.ParameterName = "$targetUserId"; p3.Value = (object?)targetUserId ?? DBNull.Value;
-        var p4 = cmd.CreateParameter(); p4.ParameterName = "$targetName"; p4.Value = (object?)targetName ?? DBNull.Value;
-        var p5 = cmd.CreateParameter(); p5.ParameterName = "$inviteLogId"; p5.Value = inviteLogId;
-        var p6 = cmd.CreateParameter(); p6.ParameterName = "$invitedAtUtc"; p6.Value = invitedAtStr;
-        var p7 = cmd.CreateParameter(); p7.ParameterName = "$updatedAtUtc"; p7.Value = nowStr;
+    var p1 = cmd.CreateParameter(); p1.ParameterName = "$groupId"; p1.Value = groupId;
+    var p2 = cmd.CreateParameter(); p2.ParameterName = "$targetKey"; p2.Value = targetKey;
+    var p3 = cmd.CreateParameter(); p3.ParameterName = "$targetUserId"; p3.Value = (object?)targetUserId ?? DBNull.Value;
+    var p4 = cmd.CreateParameter(); p4.ParameterName = "$targetName"; p4.Value = (object?)targetName ?? DBNull.Value;
+    var p5 = cmd.CreateParameter(); p5.ParameterName = "$inviterId"; p5.Value = (object?)inviterId ?? DBNull.Value;
+    var p6 = cmd.CreateParameter(); p6.ParameterName = "$inviterName"; p6.Value = (object?)inviterName ?? DBNull.Value;
+    var p7 = cmd.CreateParameter(); p7.ParameterName = "$inviteLogId"; p7.Value = inviteLogId;
+    var p8 = cmd.CreateParameter(); p8.ParameterName = "$invitedAtUtc"; p8.Value = invitedAtStr;
+    var p9 = cmd.CreateParameter(); p9.ParameterName = "$updatedAtUtc"; p9.Value = nowStr;
 
-        cmd.Parameters.Add(p1);
-        cmd.Parameters.Add(p2);
-        cmd.Parameters.Add(p3);
-        cmd.Parameters.Add(p4);
-        cmd.Parameters.Add(p5);
-        cmd.Parameters.Add(p6);
-        cmd.Parameters.Add(p7);
+    cmd.Parameters.Add(p1);
+    cmd.Parameters.Add(p2);
+    cmd.Parameters.Add(p3);
+    cmd.Parameters.Add(p4);
+    cmd.Parameters.Add(p5);
+    cmd.Parameters.Add(p6);
+    cmd.Parameters.Add(p7);
+    cmd.Parameters.Add(p8);
+    cmd.Parameters.Add(p9);
 
-        await cmd.ExecuteNonQueryAsync();
-    }
+    await cmd.ExecuteNonQueryAsync();
+}
 
-    public async Task<(bool Found, DateTime? InvitedAtUtc)> TryConsumePendingInviteAsync(string groupId, string? targetUserId, string? targetName)
+    public async Task<(bool Found, DateTime? InvitedAtUtc, string? InviterId, string? InviterName)>
+    TryConsumePendingInviteAsync(string groupId, string? targetUserId, string? targetName)
+{
+    await InitializeAsync();
+
+    using var context = new AppDbContext();
+    var connection = context.Database.GetDbConnection();
+    if (connection.State != System.Data.ConnectionState.Open)
+        await connection.OpenAsync();
+
+    var candidateKeys = new List<string>();
+    if (!string.IsNullOrWhiteSpace(targetUserId))
+        candidateKeys.Add(ComputeTargetKey(targetUserId, null));
+    if (!string.IsNullOrWhiteSpace(targetName))
+        candidateKeys.Add(ComputeTargetKey(null, targetName));
+
+    if (candidateKeys.Count == 0)
+        return (false, null, null, null);
+
+    using var tx = connection.BeginTransaction();
+
+    foreach (var key in candidateKeys.Distinct())
     {
-        await InitializeAsync();
-
-        using var context = new AppDbContext();
-        var connection = context.Database.GetDbConnection();
-        if (connection.State != System.Data.ConnectionState.Open)
-            await connection.OpenAsync();
-
-        // Try userId key first, then name key fallback
-        var candidateKeys = new List<string>();
-        if (!string.IsNullOrWhiteSpace(targetUserId))
-            candidateKeys.Add(ComputeTargetKey(targetUserId, null));
-        if (!string.IsNullOrWhiteSpace(targetName))
-            candidateKeys.Add(ComputeTargetKey(null, targetName));
-
-        if (candidateKeys.Count == 0)
-            return (false, null);
-
-        using var tx = connection.BeginTransaction();
-
-        foreach (var key in candidateKeys.Distinct())
-        {
-            using var selectCmd = connection.CreateCommand();
-            selectCmd.Transaction = tx;
-            selectCmd.CommandText = @"
-SELECT InvitedAtUtc
+        using var selectCmd = connection.CreateCommand();
+        selectCmd.Transaction = tx;
+        selectCmd.CommandText = @"
+SELECT InvitedAtUtc, InviterId, InviterName
 FROM PendingGroupInvites
 WHERE GroupId = $groupId AND TargetKey = $targetKey
 LIMIT 1;
 ";
-            var s1 = selectCmd.CreateParameter(); s1.ParameterName = "$groupId"; s1.Value = groupId;
-            var s2 = selectCmd.CreateParameter(); s2.ParameterName = "$targetKey"; s2.Value = key;
-            selectCmd.Parameters.Add(s1);
-            selectCmd.Parameters.Add(s2);
+        var s1 = selectCmd.CreateParameter(); s1.ParameterName = "$groupId"; s1.Value = groupId;
+        var s2 = selectCmd.CreateParameter(); s2.ParameterName = "$targetKey"; s2.Value = key;
+        selectCmd.Parameters.Add(s1);
+        selectCmd.Parameters.Add(s2);
 
-            var invitedStrObj = await selectCmd.ExecuteScalarAsync();
-            if (invitedStrObj != null && invitedStrObj != DBNull.Value)
-            {
-                var invitedStr = invitedStrObj.ToString() ?? "";
-                DateTime invitedUtc;
-                if (DateTimeOffset.TryParse(invitedStr, out var dto))
-                    invitedUtc = dto.UtcDateTime;
-                else
-                    invitedUtc = DateTime.UtcNow;
+        using var reader = await selectCmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
+        {
+            var invitedStr = reader.IsDBNull(0) ? "" : reader.GetString(0);
+            var inviterId = reader.IsDBNull(1) ? null : reader.GetString(1);
+            var inviterName = reader.IsDBNull(2) ? null : reader.GetString(2);
 
-                using var deleteCmd = connection.CreateCommand();
-                deleteCmd.Transaction = tx;
-                deleteCmd.CommandText = @"
+            DateTime invitedUtc;
+            if (DateTimeOffset.TryParse(invitedStr, out var dto))
+                invitedUtc = dto.UtcDateTime;
+            else
+                invitedUtc = DateTime.UtcNow;
+
+            using var deleteCmd = connection.CreateCommand();
+            deleteCmd.Transaction = tx;
+            deleteCmd.CommandText = @"
 DELETE FROM PendingGroupInvites
 WHERE GroupId = $groupId AND TargetKey = $targetKey;
 ";
-                var d1 = deleteCmd.CreateParameter(); d1.ParameterName = "$groupId"; d1.Value = groupId;
-                var d2 = deleteCmd.CreateParameter(); d2.ParameterName = "$targetKey"; d2.Value = key;
-                deleteCmd.Parameters.Add(d1);
-                deleteCmd.Parameters.Add(d2);
+            var d1 = deleteCmd.CreateParameter(); d1.ParameterName = "$groupId"; d1.Value = groupId;
+            var d2 = deleteCmd.CreateParameter(); d2.ParameterName = "$targetKey"; d2.Value = key;
+            deleteCmd.Parameters.Add(d1);
+            deleteCmd.Parameters.Add(d2);
 
-                await deleteCmd.ExecuteNonQueryAsync();
+            await deleteCmd.ExecuteNonQueryAsync();
 
-                tx.Commit();
-                return (true, invitedUtc);
-            }
+            tx.Commit();
+            return (true, invitedUtc, inviterId, inviterName);
         }
-
-        tx.Commit();
-        return (false, null);
     }
+
+    tx.Commit();
+    return (false, null, null, null);
+}
 
     public async Task<int> CleanupExpiredPendingInvitesAsync(DateTime cutoffUtc)
     {

@@ -41,12 +41,18 @@ public class FetchProgressEventArgs : EventArgs
 /// </summary>
 public interface IPendingInviteCacheService
 {
-    Task UpsertPendingInviteAsync(string groupId, string? targetUserId, string? targetDisplayName, string inviteLogId, DateTime invitedAtUtc);
+    Task UpsertPendingInviteAsync(
+    string groupId,
+    string? targetUserId,
+    string? targetName,
+    string? inviterId,
+    string? inviterName,
+    string inviteLogId,
+    DateTime invitedAtUtc);
+    
+	Task<(bool Found, DateTime? InvitedAtUtc, string? InviterName)>
+    TryConsumePendingInviteAsync(string groupId, string? targetUserId, string? targetName);
 
-    /// <summary>
-    /// Consume (remove) a pending invite if it exists for this user/name, returning invitedAt time.
-    /// </summary>
-    Task<(bool found, DateTime invitedAtUtc)> TryConsumePendingInviteAsync(string groupId, string? targetUserId, string? targetDisplayName, string joinLogId, DateTime joinedAtUtc);
 }
 
 public class AuditLogService : IAuditLogService, IDisposable
@@ -73,9 +79,9 @@ public class AuditLogService : IAuditLogService, IDisposable
     private bool _initialPollComplete = false;
 
     // In-memory fallback pending-invite store (used until DB-backed store is available)
-    private readonly Dictionary<string, (DateTime invitedAt, string? inviterName)> _pendingInviteByUserId = new();
-    private readonly Dictionary<string, (DateTime invitedAt, string? inviterName)> _pendingInviteByName
-    = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (DateTime invitedAt, string? inviterId, string? inviterName)> _pendingInviteByUserId = new();
+    private readonly Dictionary<string, (DateTime invitedAt, string? inviterId, string? inviterName)> _pendingInviteByName =
+    new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan PendingInviteTtl = TimeSpan.FromDays(7);
 
     public event EventHandler<List<AuditLogEntry>>? NewLogsReceived;
@@ -223,51 +229,51 @@ public class AuditLogService : IAuditLogService, IDisposable
             return;
 
         // 1) Cache-layer store (if implemented)
-        if (_cacheService is IPendingInviteCacheService store)
-        {
-            await store.UpsertPendingInviteAsync(_currentGroupId, log.TargetId, log.TargetName, log.Id, log.CreatedAt);
-            return;
-        }
 
-        // 2) Direct DB store (if available)
-        if (_databaseService != null)
-        {
-            await _databaseService.UpsertPendingInviteAsync(_currentGroupId, log.TargetId, log.TargetName, log.Id, log.CreatedAt);
-            return;
-        }
+
+// 2) Direct DB store (if available)
+if (_databaseService != null)
+{
+    await _databaseService.UpsertPendingInviteAsync(
+        _currentGroupId,
+        log.TargetId,
+        log.TargetName,
+        log.ActorId,
+        log.ActorName,
+        log.Id,
+        log.CreatedAt);
+
+    return;
+}
 
         // 3) In-memory fallback
+        var inviterId = log.ActorId;
         var inviterName = log.ActorName;
 
-        if (!string.IsNullOrWhiteSpace(log.TargetId))
-            _pendingInviteByUserId[log.TargetId] = (log.CreatedAt, inviterName);
+if (!string.IsNullOrWhiteSpace(log.TargetId))
+    _pendingInviteByUserId[log.TargetId] = (log.CreatedAt, inviterId, inviterName);
 
-        if (!string.IsNullOrWhiteSpace(log.TargetName))
-            _pendingInviteByName[log.TargetName] = (log.CreatedAt, inviterName);
+if (!string.IsNullOrWhiteSpace(log.TargetName))
+    _pendingInviteByName[log.TargetName] = (log.CreatedAt, inviterId, inviterName);
     }
 
-    private async Task<(bool found, DateTime invitedAtUtc, string? inviterName)>
+    private async Task<(bool found, DateTime invitedAtUtc, string? inviterId, string? inviterName)>
     TryConsumePendingInviteAsync(AuditLogEntry joinLog)
 {
     if (_currentGroupId == null)
         return (false, default, null);
 
     // 1) Cache-layer store (if implemented) - inviter not available unless interface extended
-    if (_cacheService is IPendingInviteCacheService store)
-    {
-        var (found, invitedAt) = await store.TryConsumePendingInviteAsync(
-            _currentGroupId, joinLog.TargetId, joinLog.TargetName, joinLog.Id, joinLog.CreatedAt);
-
-        return (found, invitedAt, null);
-    }
-
+   
+  
     // 2) Direct DB store (if available) - inviter not available unless DB schema extended
     if (_databaseService != null)
     {
-        var (found, invitedAtNullable) = await _databaseService.TryConsumePendingInviteAsync(
-            _currentGroupId, joinLog.TargetId, joinLog.TargetName);
+        var (found, invitedAtNullable, inviterId, inviterName) =
+    await _databaseService.TryConsumePendingInviteAsync(
+        _currentGroupId, joinLog.TargetId, joinLog.TargetName);
 
-        return (found, invitedAtNullable ?? default, null);
+return (found, invitedAtNullable ?? default, inviterId, inviterName);
     }
 
     // 3) In-memory fallback (inviterName available)
@@ -275,7 +281,7 @@ public class AuditLogService : IAuditLogService, IDisposable
         _pendingInviteByUserId.TryGetValue(joinLog.TargetId, out var data1))
     {
         _pendingInviteByUserId.Remove(joinLog.TargetId);
-        return (true, data1.invitedAt, data1.inviterName);
+        return (true, data1.invitedAt, data1.inviterId, data1.inviterName);
     }
 
     if (!string.IsNullOrWhiteSpace(joinLog.TargetName) &&
@@ -299,7 +305,8 @@ public class AuditLogService : IAuditLogService, IDisposable
     string groupId,
     AuditLogEntry joinLog,
     DateTime invitedAtUtc,
-    string? inviterName)
+    string? inviterName,
+    string? inviterId)
 {
     var whoName = joinLog.TargetName ?? "User";
     var whoId = joinLog.TargetId ?? "";
@@ -322,7 +329,8 @@ public class AuditLogService : IAuditLogService, IDisposable
         joinLogId = joinLog.Id,
         targetId = joinLog.TargetId,
         targetName = joinLog.TargetName,
-        inviterName
+        inviterName,
+		inviterid
     });
 
     return new AuditLogEntry
@@ -405,10 +413,10 @@ public class AuditLogService : IAuditLogService, IDisposable
                 {
                     if (string.Equals(log.EventType, "group.user.join", StringComparison.OrdinalIgnoreCase))
                     {
-                       var (found, invitedAt, inviterName) = await TryConsumePendingInviteAsync(log);
+                       var (found, invitedAt, inviterId, inviterName) = await TryConsumePendingInviteAsync(log);
 if (found)
 {
-    var derived = CreateInviteAcceptedDerivedLog(_currentGroupId, log, invitedAt, inviterName);
+    var derived = CreateInviteAcceptedDerivedLog(_currentGroupId, log, invitedAt, inviterName, inviterId);
     derivedLogs.Add(derived);
     orderedToSend.Add(derived); // send accept before join
 }

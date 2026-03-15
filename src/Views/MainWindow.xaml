@@ -186,6 +186,14 @@
                                         Style="{StaticResource MaterialDesignFlatButton}"
                                         Foreground="#7C4DFF"
                                         FontWeight="SemiBold"/>
+										<Button Content="✉️  Invite To Group"
+                                        Command="{Binding SelectModuleCommand}"
+                                        CommandParameter="InviteToGroup"
+                                        HorizontalContentAlignment="Left"
+                                        Height="40"
+                                        Margin="0,0,0,5"
+                                        Style="{StaticResource MaterialDesignFlatButton}"
+                                        Foreground="White"/>
                                     <Button Content="🔍  18+ Badge Scanner"
                                         Command="{Binding SelectModuleCommand}"
                                         CommandParameter="BadgeScanner"
@@ -326,6 +334,9 @@
                 <Border Grid.Column="1" Padding="20">
                     <ContentControl Content="{Binding}">
                         <ContentControl.Resources>
+						    <DataTemplate x:Key="InviteToGroup">
+                                <views:InviteToGroupView DataContext="{Binding InviteToGroupVM}"/>
+                            </DataTemplate>
                             <DataTemplate x:Key="GroupInfo">
                                 <views:GroupInfoView DataContext="{Binding GroupInfoVM}"/>
                             </DataTemplate>
@@ -394,6 +405,9 @@
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding CurrentModule}" Value="InviterHub">
                                         <Setter Property="ContentTemplate" Value="{StaticResource InviterHub}"/>
+                                    </DataTrigger>
+									<DataTrigger Binding="{Binding CurrentModule}" Value="InviteToGroup">
+                                        <Setter Property="ContentTemplate" Value="{StaticResource InviteToGroup}"/>
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding CurrentModule}" Value="BadgeScanner">
                                         <Setter Property="ContentTemplate" Value="{StaticResource BadgeScanner}"/>

@@ -239,6 +239,7 @@ public partial class App : Application
         
         // Services
         services.AddSingleton<IVRChatApiService, VRChatApiService>();
+		services.AddTransient<InviteToGroupViewModel>();
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<IUpdateService, UpdateService>();
         services.AddSingleton<ISecurityMonitorService, SecurityMonitorService>();
@@ -268,7 +269,6 @@ public partial class App : Application
         services.AddTransient<MemberBackupViewModel>();
         services.AddTransient<GroupInfoViewModel>();
         services.AddTransient<GroupPostsViewModel>();
-        services.AddTransient<InviteToGroupViewModel>();
         services.AddTransient<KillSwitchViewModel>();
         services.AddTransient<AppSettingsViewModel>();
         services.AddSingleton<IInstanceInviterService, InstanceInviterService>();
