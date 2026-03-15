@@ -257,26 +257,37 @@ if (!string.IsNullOrWhiteSpace(log.TargetName))
     _pendingInviteByName[log.TargetName] = (log.CreatedAt, inviterId, inviterName);
     }
 
-    private async Task<(bool found, DateTime invitedAtUtc, string? inviterId, string? inviterName)>
+   private async Task<(bool found, DateTime invitedAtUtc, string? inviterId, string? inviterName)>
     TryConsumePendingInviteAsync(AuditLogEntry joinLog)
 {
     if (_currentGroupId == null)
-        return (false, default, null);
+        return (false, default(DateTime), null, null);
 
-    // 1) Cache-layer store (if implemented) - inviter not available unless interface extended
-   
-  
-    // 2) Direct DB store (if available) - inviter not available unless DB schema extended
+    // 1) Cache-layer store (if implemented)
+    // NOTE: if your cache interface only returns inviterName (3-tuple), just pad inviterId with null.
+    if (_cacheService is IPendingInviteCacheService store)
+    {
+        // If your IPendingInviteCacheService returns ONLY (Found, InvitedAtUtc, InviterName):
+        var (found, invitedAtNullable, inviterName) =
+            await store.TryConsumePendingInviteAsync(_currentGroupId, joinLog.TargetId, joinLog.TargetName);
+
+        return (found, invitedAtNullable ?? default(DateTime), null, inviterName);
+
+        // If you later upgrade cache interface to return inviterId too, switch to:
+        // var (found, invitedAtNullable, inviterId, inviterName) = await store.TryConsumePendingInviteAsync(...);
+        // return (found, invitedAtNullable ?? default(DateTime), inviterId, inviterName);
+    }
+
+    // 2) Direct DB store (persistent)
     if (_databaseService != null)
     {
         var (found, invitedAtNullable, inviterId, inviterName) =
-    await _databaseService.TryConsumePendingInviteAsync(
-        _currentGroupId, joinLog.TargetId, joinLog.TargetName);
+            await _databaseService.TryConsumePendingInviteAsync(_currentGroupId, joinLog.TargetId, joinLog.TargetName);
 
-return (found, invitedAtNullable ?? default, inviterId, inviterName);
+        return (found, invitedAtNullable ?? default(DateTime), inviterId, inviterName);
     }
 
-    // 3) In-memory fallback (inviterName available)
+    // 3) In-memory fallback
     if (!string.IsNullOrWhiteSpace(joinLog.TargetId) &&
         _pendingInviteByUserId.TryGetValue(joinLog.TargetId, out var data1))
     {
@@ -288,10 +299,10 @@ return (found, invitedAtNullable ?? default, inviterId, inviterName);
         _pendingInviteByName.TryGetValue(joinLog.TargetName, out var data2))
     {
         _pendingInviteByName.Remove(joinLog.TargetName);
-        return (true, data2.invitedAt, data2.inviterName);
+        return (true, data2.invitedAt, data2.inviterId, data2.inviterName);
     }
 
-    return (false, default, null);
+    return (false, default(DateTime), null, null);
 }
 
     private static string ComputeSyntheticId(string seed)
@@ -330,7 +341,7 @@ return (found, invitedAtNullable ?? default, inviterId, inviterName);
         targetId = joinLog.TargetId,
         targetName = joinLog.TargetName,
         inviterName,
-		inviterid
+		inviterId
     });
 
     return new AuditLogEntry
