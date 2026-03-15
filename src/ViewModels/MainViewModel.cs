@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -131,45 +132,43 @@ public partial class MainViewModel : ObservableObject
         Console.WriteLine("[DEBUG] MainViewModel constructor completed");
     }
 
-    public void Initialize()
+    
+public void Initialize()
+{
+    Console.WriteLine("[DEBUG] MainViewModel.Initialize() starting...");
+
+    BadgeScannerVM = App.Services.GetRequiredService<BadgeScannerViewModel>();
+    InviteToGroupVM = App.Services.GetRequiredService<InviteToGroupViewModel>();
+    UserSearchVM = App.Services.GetRequiredService<UserSearchViewModel>();
+    AuditLogVM = App.Services.GetRequiredService<AuditLogViewModel>();
+    DiscordSettingsVM = App.Services.GetRequiredService<DiscordSettingsViewModel>();
+    SecuritySettingsVM = App.Services.GetRequiredService<SecuritySettingsViewModel>();
+    CalendarEventVM = App.Services.GetRequiredService<CalendarEventViewModel>();
+    InstanceCreatorVM = App.Services.GetRequiredService<InstanceCreatorViewModel>();
+    GroupInfoVM = App.Services.GetRequiredService<GroupInfoViewModel>();
+    GroupPostsVM = App.Services.GetRequiredService<GroupPostsViewModel>();
+    MembersListVM = App.Services.GetRequiredService<MembersListViewModel>();
+    BansListVM = App.Services.GetRequiredService<BansListViewModel>();
+    MemberBackupVM = App.Services.GetRequiredService<MemberBackupViewModel>();
+    KillSwitchVM = App.Services.GetRequiredService<KillSwitchViewModel>();
+    InstanceInviterVM = App.Services.GetRequiredService<InstanceInviterViewModel>();
+    AppSettingsVM = App.Services.GetRequiredService<AppSettingsViewModel>();
+    InviterHubVM = App.Services.GetRequiredService<InviterHubViewModel>();
+    GroupJoinRequestsVM = App.Services.GetRequiredService<GroupJoinRequestsViewModel>();
+    AutoCloserVM = App.Services.GetRequiredService<AutoCloserViewModel>();
+
+    BadgeScannerVM!.GroupId = GroupId;
+    _apiService.CurrentGroupId = GroupId;
+
+    if (!string.IsNullOrWhiteSpace(GroupId))
     {
-        Console.WriteLine("[DEBUG] MainViewModel.Initialize() starting...");
-        BadgeScannerVM = App.Services.GetRequiredService<BadgeScannerViewModel>();
-        UserSearchVM = App.Services.GetRequiredService<UserSearchViewModel>();
-        AuditLogVM = App.Services.GetRequiredService<AuditLogViewModel>();
-        DiscordSettingsVM = App.Services.GetRequiredService<DiscordSettingsViewModel>();
-        SecuritySettingsVM = App.Services.GetRequiredService<SecuritySettingsViewModel>();
-        CalendarEventVM = App.Services.GetRequiredService<CalendarEventViewModel>();
-        InstanceCreatorVM = App.Services.GetRequiredService<InstanceCreatorViewModel>();
-        GroupInfoVM = App.Services.GetRequiredService<GroupInfoViewModel>();
-        GroupPostsVM = App.Services.GetRequiredService<GroupPostsViewModel>();
-        InviteToGroupVM = App.Services.GetRequiredService<InviteToGroupViewModel>();
-        MembersListVM = App.Services.GetRequiredService<MembersListViewModel>();
-        BansListVM = App.Services.GetRequiredService<BansListViewModel>();
-        MemberBackupVM = App.Services.GetRequiredService<MemberBackupViewModel>();
-        KillSwitchVM = App.Services.GetRequiredService<KillSwitchViewModel>();
-        InstanceInviterVM = App.Services.GetRequiredService<InstanceInviterViewModel>();
-        AppSettingsVM = App.Services.GetRequiredService<AppSettingsViewModel>();
-        InviterHubVM = App.Services.GetRequiredService<InviterHubViewModel>();
-        GroupJoinRequestsVM = App.Services.GetRequiredService<GroupJoinRequestsViewModel>();
-        AutoCloserVM = App.Services.GetRequiredService<AutoCloserViewModel>();
-        
-        // Sync group ID to badge scanner and API service
-        BadgeScannerVM!.GroupId = GroupId;
-        _apiService.CurrentGroupId = GroupId;
-        
-        // Auto-refresh group info on load
-        if (!string.IsNullOrWhiteSpace(GroupId))
-        {
-            _ = GroupInfoVM!.RefreshCommand.ExecuteAsync(null);
-            
-            // Start audit log polling automatically (for Discord webhooks)
-            Console.WriteLine("[DEBUG] Auto-starting audit log polling for Discord webhooks...");
-            _ = AuditLogVM!.InitializeAsync();
-        }
-        
-        Console.WriteLine("[DEBUG] MainViewModel.Initialize() completed");
+        _ = GroupInfoVM!.RefreshCommand.ExecuteAsync(null);
+        _ = AuditLogVM!.InitializeAsync();
     }
+
+    Console.WriteLine("[DEBUG] MainViewModel.Initialize() completed");
+}
+
 
     partial void OnSelectedGroupChanged(GroupConfiguration? value)
     {

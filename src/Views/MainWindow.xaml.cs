@@ -12,23 +12,24 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
 
     public MainWindow()
-    {
-        Console.WriteLine("[DEBUG] MainWindow constructor starting...");
-        
-        // Initialize ViewModel BEFORE InitializeComponent so bindings work
-        _viewModel = App.Services.GetRequiredService<MainViewModel>();
-        Console.WriteLine("[DEBUG] MainViewModel retrieved");
-        _viewModel.Initialize(); // Initialize child ViewModels
-        Console.WriteLine("[DEBUG] MainViewModel initialized");
-        DataContext = _viewModel;
-        Console.WriteLine("[DEBUG] DataContext set");
-        
-        InitializeComponent();
-        Console.WriteLine("[DEBUG] MainWindow InitializeComponent done");
-        
-        _viewModel.LogoutRequested += OnLogoutRequested;
-        Console.WriteLine("[DEBUG] MainWindow constructor completed");
-    }
+{
+    Console.WriteLine("[DEBUG] MainWindow constructor starting...");
+
+    _viewModel = App.Services.GetRequiredService<MainViewModel>();
+    Console.WriteLine("[DEBUG] MainViewModel retrieved");
+
+    _viewModel.Initialize(); // ✅ MainViewModel handles ALL child VMs
+    Console.WriteLine("[DEBUG] MainViewModel initialized");
+
+    DataContext = _viewModel;
+    Console.WriteLine("[DEBUG] DataContext set");
+
+    InitializeComponent();
+    Console.WriteLine("[DEBUG] MainWindow InitializeComponent done");
+
+    _viewModel.LogoutRequested += OnLogoutRequested;
+    Console.WriteLine("[DEBUG] MainWindow constructor completed");
+}
 
     private void OnLogoutRequested()
     {

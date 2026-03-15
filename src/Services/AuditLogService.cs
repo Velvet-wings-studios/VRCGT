@@ -41,12 +41,18 @@ public class FetchProgressEventArgs : EventArgs
 /// </summary>
 public interface IPendingInviteCacheService
 {
-    Task UpsertPendingInviteAsync(string groupId, string? targetUserId, string? targetDisplayName, string inviteLogId, DateTime invitedAtUtc);
+    Task UpsertPendingInviteAsync(
+    string groupId,
+    string? targetUserId,
+    string? targetName,
+    string? inviterId,
+    string? inviterName,
+    string inviteLogId,
+    DateTime invitedAtUtc);
+    
+	Task<(bool Found, DateTime? InvitedAtUtc, string? InviterName)>
+    TryConsumePendingInviteAsync(string groupId, string? targetUserId, string? targetName);
 
-    /// <summary>
-    /// Consume (remove) a pending invite if it exists for this user/name, returning invitedAt time.
-    /// </summary>
-    Task<(bool found, DateTime invitedAtUtc)> TryConsumePendingInviteAsync(string groupId, string? targetUserId, string? targetDisplayName, string joinLogId, DateTime joinedAtUtc);
 }
 
 public class AuditLogService : IAuditLogService, IDisposable
@@ -73,8 +79,9 @@ public class AuditLogService : IAuditLogService, IDisposable
     private bool _initialPollComplete = false;
 
     // In-memory fallback pending-invite store (used until DB-backed store is available)
-    private readonly Dictionary<string, DateTime> _pendingInviteByUserId = new();
-    private readonly Dictionary<string, DateTime> _pendingInviteByName = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (DateTime invitedAt, string? inviterId, string? inviterName)> _pendingInviteByUserId = new();
+    private readonly Dictionary<string, (DateTime invitedAt, string? inviterId, string? inviterName)> _pendingInviteByName =
+    new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan PendingInviteTtl = TimeSpan.FromDays(7);
 
     public event EventHandler<List<AuditLogEntry>>? NewLogsReceived;
@@ -187,10 +194,16 @@ public class AuditLogService : IAuditLogService, IDisposable
         // Clean in-memory
         var cutoff = DateTime.UtcNow - PendingInviteTtl;
 
-        foreach (var key in _pendingInviteByUserId.Where(kvp => kvp.Value < cutoff).Select(kvp => kvp.Key).ToList())
+        foreach (var key in _pendingInviteByUserId
+                    .Where(kvp => kvp.Value.invitedAt < cutoff)
+                    .Select(kvp => kvp.Key)
+                    .ToList())
             _pendingInviteByUserId.Remove(key);
 
-        foreach (var key in _pendingInviteByName.Where(kvp => kvp.Value < cutoff).Select(kvp => kvp.Key).ToList())
+        foreach (var key in _pendingInviteByName
+                    .Where(kvp => kvp.Value.invitedAt < cutoff)
+                    .Select(kvp => kvp.Key)
+                    .ToList())
             _pendingInviteByName.Remove(key);
 
         // Clean DB-backed pending invites (if available)
@@ -216,57 +229,81 @@ public class AuditLogService : IAuditLogService, IDisposable
             return;
 
         // 1) Cache-layer store (if implemented)
-        if (_cacheService is IPendingInviteCacheService store)
-        {
-            await store.UpsertPendingInviteAsync(_currentGroupId, log.TargetId, log.TargetName, log.Id, log.CreatedAt);
-            return;
-        }
 
-        // 2) Direct DB store (if available)
-        if (_databaseService != null)
-        {
-            await _databaseService.UpsertPendingInviteAsync(_currentGroupId, log.TargetId, log.TargetName, log.Id, log.CreatedAt);
-            return;
-        }
+
+// 2) Direct DB store (if available)
+if (_databaseService != null)
+{
+    await _databaseService.UpsertPendingInviteAsync(
+        _currentGroupId,
+        log.TargetId,
+        log.TargetName,
+        log.ActorId,
+        log.ActorName,
+        log.Id,
+        log.CreatedAt);
+
+    return;
+}
 
         // 3) In-memory fallback
-        if (!string.IsNullOrWhiteSpace(log.TargetId))
-            _pendingInviteByUserId[log.TargetId] = log.CreatedAt;
+        var inviterId = log.ActorId;
+        var inviterName = log.ActorName;
 
-        if (!string.IsNullOrWhiteSpace(log.TargetName))
-            _pendingInviteByName[log.TargetName] = log.CreatedAt;
+if (!string.IsNullOrWhiteSpace(log.TargetId))
+    _pendingInviteByUserId[log.TargetId] = (log.CreatedAt, inviterId, inviterName);
+
+if (!string.IsNullOrWhiteSpace(log.TargetName))
+    _pendingInviteByName[log.TargetName] = (log.CreatedAt, inviterId, inviterName);
     }
 
-    private async Task<(bool found, DateTime invitedAtUtc)> TryConsumePendingInviteAsync(AuditLogEntry joinLog)
+   private async Task<(bool found, DateTime invitedAtUtc, string? inviterId, string? inviterName)>
+    TryConsumePendingInviteAsync(AuditLogEntry joinLog)
+{
+    if (_currentGroupId == null)
+        return (false, default(DateTime), null, null);
+
+    // 1) Cache-layer store (if implemented)
+    // NOTE: if your cache interface only returns inviterName (3-tuple), just pad inviterId with null.
+    if (_cacheService is IPendingInviteCacheService store)
     {
-        if (_currentGroupId == null) return (false, default);
+        // If your IPendingInviteCacheService returns ONLY (Found, InvitedAtUtc, InviterName):
+        var (found, invitedAtNullable, inviterName) =
+            await store.TryConsumePendingInviteAsync(_currentGroupId, joinLog.TargetId, joinLog.TargetName);
 
-        // 1) Cache-layer store (if implemented)
-        if (_cacheService is IPendingInviteCacheService store)
-            return await store.TryConsumePendingInviteAsync(_currentGroupId, joinLog.TargetId, joinLog.TargetName, joinLog.Id, joinLog.CreatedAt);
+        return (found, invitedAtNullable ?? default(DateTime), null, inviterName);
 
-        // 2) Direct DB store (if available)
-        if (_databaseService != null)
-        {
-            var (found, invitedAt) = await _databaseService.TryConsumePendingInviteAsync(_currentGroupId, joinLog.TargetId, joinLog.TargetName);
-            return (found, invitedAt ?? default);
-        }
-
-        // 3) In-memory fallback
-        if (!string.IsNullOrWhiteSpace(joinLog.TargetId) && _pendingInviteByUserId.TryGetValue(joinLog.TargetId, out var t1))
-        {
-            _pendingInviteByUserId.Remove(joinLog.TargetId);
-            return (true, t1);
-        }
-
-        if (!string.IsNullOrWhiteSpace(joinLog.TargetName) && _pendingInviteByName.TryGetValue(joinLog.TargetName, out var t2))
-        {
-            _pendingInviteByName.Remove(joinLog.TargetName);
-            return (true, t2);
-        }
-
-        return (false, default);
+        // If you later upgrade cache interface to return inviterId too, switch to:
+        // var (found, invitedAtNullable, inviterId, inviterName) = await store.TryConsumePendingInviteAsync(...);
+        // return (found, invitedAtNullable ?? default(DateTime), inviterId, inviterName);
     }
+
+    // 2) Direct DB store (persistent)
+    if (_databaseService != null)
+    {
+        var (found, invitedAtNullable, inviterId, inviterName) =
+            await _databaseService.TryConsumePendingInviteAsync(_currentGroupId, joinLog.TargetId, joinLog.TargetName);
+
+        return (found, invitedAtNullable ?? default(DateTime), inviterId, inviterName);
+    }
+
+    // 3) In-memory fallback
+    if (!string.IsNullOrWhiteSpace(joinLog.TargetId) &&
+        _pendingInviteByUserId.TryGetValue(joinLog.TargetId, out var data1))
+    {
+        _pendingInviteByUserId.Remove(joinLog.TargetId);
+        return (true, data1.invitedAt, data1.inviterId, data1.inviterName);
+    }
+
+    if (!string.IsNullOrWhiteSpace(joinLog.TargetName) &&
+        _pendingInviteByName.TryGetValue(joinLog.TargetName, out var data2))
+    {
+        _pendingInviteByName.Remove(joinLog.TargetName);
+        return (true, data2.invitedAt, data2.inviterId, data2.inviterName);
+    }
+
+    return (false, default(DateTime), null, null);
+}
 
     private static string ComputeSyntheticId(string seed)
     {
@@ -275,40 +312,56 @@ public class AuditLogService : IAuditLogService, IDisposable
         return Convert.ToHexString(sha.ComputeHash(bytes));
     }
 
-    private static AuditLogEntry CreateInviteAcceptedDerivedLog(string groupId, AuditLogEntry joinLog, DateTime invitedAtUtc)
+    private static AuditLogEntry CreateInviteAcceptedDerivedLog(
+    string groupId,
+    AuditLogEntry joinLog,
+    DateTime invitedAtUtc,
+    string? inviterName,
+    string? inviterId)
+{
+    var whoName = joinLog.TargetName ?? "User";
+    var whoId = joinLog.TargetId ?? "";
+
+    var desc = !string.IsNullOrWhiteSpace(inviterName)
+        ? $"{whoName} accepted an invite from {inviterName}"
+        : $"{whoName} accepted a group invite";
+
+    // include inviterName in seed so derived ID stays stable per inviter (if available)
+    var seed = $"derived|invite.accept|{groupId}|{whoId}|{whoName}|{invitedAtUtc:o}|{joinLog.Id}|{inviterName}";
+    var derivedId = ComputeSyntheticId(seed);
+
+    var derivedRaw = JsonSerializer.Serialize(new
     {
-        var whoName = joinLog.TargetName ?? "User";
-        var whoId = joinLog.TargetId ?? "";
+        derived = true,
+        derivedType = "group.invite.accept",
+        groupId,
+        invitedAtUtc,
+        joinedAtUtc = joinLog.CreatedAt,
+        joinLogId = joinLog.Id,
+        targetId = joinLog.TargetId,
+        targetName = joinLog.TargetName,
+        inviterName,
+		inviterId
+    });
 
-        var seed = $"derived|invite.accept|{groupId}|{whoId}|{whoName}|{invitedAtUtc:o}|{joinLog.Id}";
-        var derivedId = ComputeSyntheticId(seed);
+    return new AuditLogEntry
+    {
+        Id = derivedId,
+        EventType = "group.invite.accept",
+        CreatedAt = joinLog.CreatedAt,
 
-        var derivedRaw = JsonSerializer.Serialize(new
-        {
-            derived = true,
-            derivedType = "group.invite.accept",
-            groupId,
-            invitedAtUtc,
-            joinedAtUtc = joinLog.CreatedAt,
-            joinLogId = joinLog.Id,
-            targetId = joinLog.TargetId,
-            targetName = joinLog.TargetName
-        });
+        // "actor" here is the joiner (consistent with how your UI shows it)
+        ActorId = joinLog.TargetId,
+        ActorName = whoName,
 
-        return new AuditLogEntry
-        {
-            Id = derivedId,
-            EventType = "group.invite.accept",
-            CreatedAt = joinLog.CreatedAt,
-            ActorId = joinLog.TargetId,
-            ActorName = whoName,
-            TargetId = null,
-            TargetName = null,
-            Description = $"Accepted a group invite (invite sent {invitedAtUtc:u})",
-            RawData = derivedRaw,
-            EventColor = joinLog.EventColor
-        };
-    }
+        TargetId = null,
+        TargetName = null,
+
+        Description = desc,
+        RawData = derivedRaw,
+        EventColor = joinLog.EventColor
+    };
+}
 
     private async Task PollForNewLogsAsync()
     {
@@ -371,13 +424,13 @@ public class AuditLogService : IAuditLogService, IDisposable
                 {
                     if (string.Equals(log.EventType, "group.user.join", StringComparison.OrdinalIgnoreCase))
                     {
-                        var (found, invitedAt) = await TryConsumePendingInviteAsync(log);
-                        if (found)
-                        {
-                            var derived = CreateInviteAcceptedDerivedLog(_currentGroupId, log, invitedAt);
-                            derivedLogs.Add(derived);
-                            orderedToSend.Add(derived); // send accept before join
-                        }
+                       var (found, invitedAt, inviterId, inviterName) = await TryConsumePendingInviteAsync(log);
+if (found)
+{
+    var derived = CreateInviteAcceptedDerivedLog(_currentGroupId, log, invitedAt, inviterName, inviterId);
+    derivedLogs.Add(derived);
+    orderedToSend.Add(derived); // send accept before join
+}
                     }
 
                     orderedToSend.Add(log);

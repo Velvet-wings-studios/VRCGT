@@ -25,7 +25,7 @@ public partial class App : Application
     private static extern bool FreeConsole();
 
     public static IServiceProvider Services { get; private set; } = null!;
-    public static string Version => "1.2.2";
+    public static string Version => "1.2.3";
     public static string GitHubRepo => "Velvet-wings-studios/VRCGT";
     public static string BindingLogPath { get; private set; } = string.Empty;
 
@@ -239,6 +239,7 @@ public partial class App : Application
         
         // Services
         services.AddSingleton<IVRChatApiService, VRChatApiService>();
+		services.AddTransient<InviteToGroupViewModel>();
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<IUpdateService, UpdateService>();
         services.AddSingleton<ISecurityMonitorService, SecurityMonitorService>();
@@ -268,7 +269,6 @@ public partial class App : Application
         services.AddTransient<MemberBackupViewModel>();
         services.AddTransient<GroupInfoViewModel>();
         services.AddTransient<GroupPostsViewModel>();
-        services.AddTransient<InviteToGroupViewModel>();
         services.AddTransient<KillSwitchViewModel>();
         services.AddTransient<AppSettingsViewModel>();
         services.AddSingleton<IInstanceInviterService, InstanceInviterService>();
