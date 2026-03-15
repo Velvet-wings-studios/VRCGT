@@ -102,75 +102,60 @@ public class DatabaseService : IDatabaseService
     }
 
     private async Task MigrateSchemaAsync(AppDbContext context)
+{
+    try
     {
-        try
-        {
-            var connection = context.Database.GetDbConnection();
-            if (connection.State != System.Data.ConnectionState.Open)
-            {
-                await connection.OpenAsync();
-            }
+        var connection = context.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+            await connection.OpenAsync();
 
-            using var command = connection.CreateCommand();
+        // ---- AuditLogs schema check ----
+        using (var command = connection.CreateCommand())
+        {
             command.CommandText = "PRAGMA table_info(AuditLogs)";
 
             var hasDiscordSentAt = false;
             var hasInstanceId = false;
             var hasWorldName = false;
 
-            using (var reader = await command.ExecuteReaderAsync())
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
             {
-                while (await reader.ReadAsync())
-                {
-                    var columnName = reader.GetString(1); // Column name is at index 1
-                    if (columnName == "DiscordSentAt")
-                        hasDiscordSentAt = true;
-                    else if (columnName == "InstanceId")
-                        hasInstanceId = true;
-                    else if (columnName == "WorldName")
-                        hasWorldName = true;
-                }
+                var columnName = reader.GetString(1);
+                if (columnName == "DiscordSentAt") hasDiscordSentAt = true;
+                else if (columnName == "InstanceId") hasInstanceId = true;
+                else if (columnName == "WorldName") hasWorldName = true;
             }
 
-            Console.WriteLine($"[DATABASE] Schema check - DiscordSentAt: {hasDiscordSentAt}, InstanceId: {hasInstanceId}, WorldName: {hasWorldName}");
-
-            // Add DiscordSentAt column if it doesn't exist
             if (!hasDiscordSentAt)
             {
-                Console.WriteLine("[DATABASE] Adding DiscordSentAt column to AuditLogs table...");
-                using var alterCommand = connection.CreateCommand();
-                alterCommand.CommandText = "ALTER TABLE AuditLogs ADD COLUMN DiscordSentAt TEXT NULL";
-                await alterCommand.ExecuteNonQueryAsync();
-                Console.WriteLine("[DATABASE] DiscordSentAt column added successfully");
+                using var alter = connection.CreateCommand();
+                alter.CommandText = "ALTER TABLE AuditLogs ADD COLUMN DiscordSentAt TEXT NULL";
+                await alter.ExecuteNonQueryAsync();
             }
 
-            // Add InstanceId column if it doesn't exist
             if (!hasInstanceId)
             {
-                Console.WriteLine("[DATABASE] Adding InstanceId column to AuditLogs table...");
-                using var alterCommand = connection.CreateCommand();
-                alterCommand.CommandText = "ALTER TABLE AuditLogs ADD COLUMN InstanceId TEXT NULL";
-                await alterCommand.ExecuteNonQueryAsync();
-                Console.WriteLine("[DATABASE] InstanceId column added successfully");
+                using var alter = connection.CreateCommand();
+                alter.CommandText = "ALTER TABLE AuditLogs ADD COLUMN InstanceId TEXT NULL";
+                await alter.ExecuteNonQueryAsync();
             }
 
-            // Add WorldName column if it doesn't exist
             if (!hasWorldName)
             {
-                Console.WriteLine("[DATABASE] Adding WorldName column to AuditLogs table...");
-                using var alterCommand = connection.CreateCommand();
-                alterCommand.CommandText = "ALTER TABLE AuditLogs ADD COLUMN WorldName TEXT NULL";
-                await alterCommand.ExecuteNonQueryAsync();
-                Console.WriteLine("[DATABASE] WorldName column added successfully");
+                using var alter = connection.CreateCommand();
+                alter.CommandText = "ALTER TABLE AuditLogs ADD COLUMN WorldName TEXT NULL";
+                await alter.ExecuteNonQueryAsync();
             }
+        }
 
-            // Ensure MemberBackups table exists (older databases won't have it)
-            using var tableCheck = connection.CreateCommand();
+        // ---- MemberBackups table ----
+        using (var tableCheck = connection.CreateCommand())
+        {
             tableCheck.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='MemberBackups'";
             var tableName = await tableCheck.ExecuteScalarAsync();
             if (tableName == null)
             {
-                Console.WriteLine("[DATABASE] Creating MemberBackups table...");
                 using var createTable = connection.CreateCommand();
                 createTable.CommandText = @"
 CREATE TABLE IF NOT EXISTS MemberBackups (
@@ -196,21 +181,20 @@ CREATE INDEX IF NOT EXISTS IX_MemberBackups_BackupCreatedAt ON MemberBackups(Bac
 CREATE INDEX IF NOT EXISTS IX_MemberBackups_WasReInvited ON MemberBackups(WasReInvited);
 ";
                 await createTable.ExecuteNonQueryAsync();
-                Console.WriteLine("[DATABASE] MemberBackups table created successfully");
             }
+        }
 
-            // Ensure PendingGroupInvites table exists (used to infer invite acceptance)
-using (var pendingInviteTableCheck = connection.CreateCommand())
-{
-    pendingInviteTableCheck.CommandText =
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='PendingGroupInvites'";
-    var pendingInviteTableName = await pendingInviteTableCheck.ExecuteScalarAsync();
+        // ---- PendingGroupInvites table ----
+        using (var pendingInviteTableCheck = connection.CreateCommand())
+        {
+            pendingInviteTableCheck.CommandText =
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='PendingGroupInvites'";
+            var pendingInviteTableName = await pendingInviteTableCheck.ExecuteScalarAsync();
 
-    if (pendingInviteTableName == null)
-    {
-        Console.WriteLine("[DATABASE] Creating PendingGroupInvites table...");
-        using var createPendingInvites = connection.CreateCommand();
-        createPendingInvites.CommandText = @"
+            if (pendingInviteTableName == null)
+            {
+                using var createPendingInvites = connection.CreateCommand();
+                createPendingInvites.CommandText = @"
 CREATE TABLE IF NOT EXISTS PendingGroupInvites (
     GroupId TEXT NOT NULL,
     TargetKey TEXT NOT NULL,
@@ -224,68 +208,67 @@ CREATE TABLE IF NOT EXISTS PendingGroupInvites (
     PRIMARY KEY (GroupId, TargetKey)
 );
 ";
-        await createPendingInvites.ExecuteNonQueryAsync();
-        Console.WriteLine("[DATABASE] PendingGroupInvites table created successfully");
-    }
-}
+                await createPendingInvites.ExecuteNonQueryAsync();
+            }
+        }
 
-// Ensure inviter columns exist for older databases (and ensure indexes exist)
-bool hasInviterId = false;
-bool hasInviterName = false;
+        // ---- Ensure inviter columns exist for older DBs ----
+        bool hasInviterId = false;
+        bool hasInviterName = false;
 
-using (var pendingColsCmd = connection.CreateCommand())
-{
-    pendingColsCmd.CommandText = "PRAGMA table_info(PendingGroupInvites)";
-    using var reader = await pendingColsCmd.ExecuteReaderAsync();
-    while (await reader.ReadAsync())
-    {
-        var col = reader.GetString(1);
-        if (col == "InviterId") hasInviterId = true;
-        if (col == "InviterName") hasInviterName = true;
-    }
-}
+        using (var pendingColsCmd = connection.CreateCommand())
+        {
+            pendingColsCmd.CommandText = "PRAGMA table_info(PendingGroupInvites)";
+            using var reader = await pendingColsCmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var col = reader.GetString(1);
+                if (col == "InviterId") hasInviterId = true;
+                if (col == "InviterName") hasInviterName = true;
+            }
+        }
 
-if (!hasInviterId)
-{
-    using var alter = connection.CreateCommand();
-    alter.CommandText = "ALTER TABLE PendingGroupInvites ADD COLUMN InviterId TEXT NULL";
-    await alter.ExecuteNonQueryAsync();
-    Console.WriteLine("[DATABASE] Added InviterId to PendingGroupInvites");
-}
+        if (!hasInviterId)
+        {
+            using var alter = connection.CreateCommand();
+            alter.CommandText = "ALTER TABLE PendingGroupInvites ADD COLUMN InviterId TEXT NULL";
+            await alter.ExecuteNonQueryAsync();
+        }
 
-if (!hasInviterName)
-{
-    using var alter = connection.CreateCommand();
-    alter.CommandText = "ALTER TABLE PendingGroupInvites ADD COLUMN InviterName TEXT NULL";
-    await alter.ExecuteNonQueryAsync();
-    Console.WriteLine("[DATABASE] Added InviterName to PendingGroupInvites");
-}
+        if (!hasInviterName)
+        {
+            using var alter = connection.CreateCommand();
+            alter.CommandText = "ALTER TABLE PendingGroupInvites ADD COLUMN InviterName TEXT NULL";
+            await alter.ExecuteNonQueryAsync();
+        }
 
-using (var idx1 = connection.CreateCommand())
-{
-    idx1.CommandText =
-        "CREATE INDEX IF NOT EXISTS IX_PendingGroupInvites_GroupId ON PendingGroupInvites(GroupId)";
-    await idx1.ExecuteNonQueryAsync();
-}
+        // ---- Indexes ----
+        using (var idx1 = connection.CreateCommand())
+        {
+            idx1.CommandText =
+                "CREATE INDEX IF NOT EXISTS IX_PendingGroupInvites_GroupId ON PendingGroupInvites(GroupId)";
+            await idx1.ExecuteNonQueryAsync();
+        }
 
-using (var idx2 = connection.CreateCommand())
+        using (var idx2 = connection.CreateCommand())
 {
     idx2.CommandText =
         "CREATE INDEX IF NOT EXISTS IX_PendingGroupInvites_InvitedAtUtc ON PendingGroupInvites(InvitedAtUtc)";
     await idx2.ExecuteNonQueryAsync();
 }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[DATABASE] CRITICAL - Schema migration error: {ex.Message}");
-            Console.WriteLine($"[DATABASE] Stack trace: {ex.StackTrace}");
-            // Rethrow to prevent app from continuing with incompatible schema
-            throw new InvalidOperationException("Failed to migrate database schema. Please check the error log.", ex);
-        }
-    }
 
-    #region Audit Logs
+Console.WriteLine("[DATABASE] Schema migration complete");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[DATABASE] CRITICAL - Schema migration error: {ex.Message}");
+        Console.WriteLine($"[DATABASE] Stack trace: {ex.StackTrace}");
+        throw new InvalidOperationException("Failed to migrate database schema. Please check the error log.", ex);
+    }
+}
+
+#region Audit Logs
+
 
     public async Task<List<AuditLogEntity>> GetAuditLogsAsync(string groupId, int limit = 1000, int offset = 0)
     {
@@ -344,6 +327,7 @@ using (var idx2 = connection.CreateCommand())
     {
         // Ensure database is initialized with latest schema
         await InitializeAsync();
+		
 
         using var context = new AppDbContext();
         var saved = 0;
