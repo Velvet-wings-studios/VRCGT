@@ -90,8 +90,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private KillSwitchViewModel? _killSwitchVM;
 
-    [ObservableProperty]
-    private InstanceInviterViewModel? _instanceInviterVM;
+    
 
     [ObservableProperty]
     private InviterHubViewModel? _inviterHubVM;
@@ -151,7 +150,6 @@ public void Initialize()
     BansListVM = App.Services.GetRequiredService<BansListViewModel>();
     MemberBackupVM = App.Services.GetRequiredService<MemberBackupViewModel>();
     KillSwitchVM = App.Services.GetRequiredService<KillSwitchViewModel>();
-    InstanceInviterVM = App.Services.GetRequiredService<InstanceInviterViewModel>();
     AppSettingsVM = App.Services.GetRequiredService<AppSettingsViewModel>();
     InviterHubVM = App.Services.GetRequiredService<InviterHubViewModel>();
     GroupJoinRequestsVM = App.Services.GetRequiredService<GroupJoinRequestsViewModel>();
