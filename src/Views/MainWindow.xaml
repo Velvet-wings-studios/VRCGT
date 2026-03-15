@@ -186,14 +186,6 @@
                                         Style="{StaticResource MaterialDesignFlatButton}"
                                         Foreground="#7C4DFF"
                                         FontWeight="SemiBold"/>
-										<Button Content="✉️  Invite To Group"
-                                        Command="{Binding SelectModuleCommand}"
-                                        CommandParameter="InviteToGroup"
-                                        HorizontalContentAlignment="Left"
-                                        Height="40"
-                                        Margin="0,0,0,5"
-                                        Style="{StaticResource MaterialDesignFlatButton}"
-                                        Foreground="White"/>
                                     <Button Content="🔍  18+ Badge Scanner"
                                         Command="{Binding SelectModuleCommand}"
                                         CommandParameter="BadgeScanner"
