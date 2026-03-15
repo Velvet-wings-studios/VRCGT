@@ -166,6 +166,7 @@ public partial class MainViewModel : ObservableObject
 
     Console.WriteLine("[DEBUG] MainViewModel.Initialize() completed");
 }
+
         
         Console.WriteLine("[DEBUG] MainViewModel.Initialize() completed");
     }

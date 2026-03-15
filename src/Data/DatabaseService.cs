@@ -152,8 +152,10 @@ public class DatabaseService : IDatabaseService
         // ---- MemberBackups table ----
         using (var tableCheck = connection.CreateCommand())
         {
-            tableCheck.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='MemberBackups'";
+            tableCheck.CommandText =
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='MemberBackups'";
             var tableName = await tableCheck.ExecuteScalarAsync();
+
             if (tableName == null)
             {
                 using var createTable = connection.CreateCommand();
@@ -251,19 +253,20 @@ CREATE TABLE IF NOT EXISTS PendingGroupInvites (
         }
 
         using (var idx2 = connection.CreateCommand())
-{
-    idx2.CommandText =
-        "CREATE INDEX IF NOT EXISTS IX_PendingGroupInvites_InvitedAtUtc ON PendingGroupInvites(InvitedAtUtc)";
-    await idx2.ExecuteNonQueryAsync();
-}
+        {
+            idx2.CommandText =
+                "CREATE INDEX IF NOT EXISTS IX_PendingGroupInvites_InvitedAtUtc ON PendingGroupInvites(InvitedAtUtc)";
+            await idx2.ExecuteNonQueryAsync();
+        }
 
-Console.WriteLine("[DATABASE] Schema migration complete");
+        Console.WriteLine("[DATABASE] Schema migration complete");
     }
     catch (Exception ex)
     {
         Console.WriteLine($"[DATABASE] CRITICAL - Schema migration error: {ex.Message}");
         Console.WriteLine($"[DATABASE] Stack trace: {ex.StackTrace}");
-        throw new InvalidOperationException("Failed to migrate database schema. Please check the error log.", ex);
+        throw new InvalidOperationException(
+            "Failed to migrate database schema. Please check the error log.", ex);
     }
 }
 
