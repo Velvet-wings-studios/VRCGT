@@ -131,7 +131,8 @@ public partial class MainViewModel : ObservableObject
         Console.WriteLine("[DEBUG] MainViewModel constructor completed");
     }
 
-    public void Initialize()
+    
+public void Initialize()
 {
     Console.WriteLine("[DEBUG] MainViewModel.Initialize() starting...");
 
@@ -167,9 +168,6 @@ public partial class MainViewModel : ObservableObject
     Console.WriteLine("[DEBUG] MainViewModel.Initialize() completed");
 }
 
-        
-        Console.WriteLine("[DEBUG] MainViewModel.Initialize() completed");
-    }
 
     partial void OnSelectedGroupChanged(GroupConfiguration? value)
     {
