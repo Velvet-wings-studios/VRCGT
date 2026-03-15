@@ -100,7 +100,7 @@ public class DatabaseService : IDatabaseService
             throw;
         }
     }
-}
+
     private async Task MigrateSchemaAsync(AppDbContext context)
 {
     try
