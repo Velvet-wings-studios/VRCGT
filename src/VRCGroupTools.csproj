@@ -10,9 +10,15 @@
     <AssemblyName>VRCGroupTools</AssemblyName>
     <DefineConstants>DEBUG</DefineConstants>
     <RootNamespace>VRCGroupTools</RootNamespace>
+<<<<<<< Updated upstream
     <Version>1.2.3</Version>
     <AssemblyVersion>1.2.3</AssemblyVersion>
     <FileVersion>1.2.3</FileVersion>
+=======
+    <Version>1.2.5</Version>
+    <AssemblyVersion>1.2.5</AssemblyVersion>
+    <FileVersion>1.2.5</FileVersion>
+>>>>>>> Stashed changes
     <Company>Velvet-wings-studios</Company>
     <Product>VRC Group Tools</Product>
     <Authors>0xE69 Raven</Authors>
