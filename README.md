@@ -345,6 +345,15 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ---
 
 ## 📋 Changelog
+
+##v1.2.4 (2026-03-22
+- **inviter update**
+   -Fixed invite logs to porperly show who invited who 
+   - updated invite logs to also show when someone accepts a invite from someone that sent it (hopefully with updated logging if someone else invites the same person after someone else sent it to them Ex. player a invtes player d but denys it but player b invites d and d accepts it from b so b gets credit)
+     - added a new column to the database to track if someone accepted an invite or not and who they accepted it from (if they accepted it from someone that sent them an invite) and updated the application to use this new column to show in the logs if someone accepted an invite and who they accepted it from (if they accepted it from someone that sent them an invite)
+     - also added a new column to the logs to show if someone properly accepts invites
+     - added 2 new tabs in inviter hub
+     - many more new features
 ##v1.2.1 (2026-03-14)
 
 **Discord webhook compatability**

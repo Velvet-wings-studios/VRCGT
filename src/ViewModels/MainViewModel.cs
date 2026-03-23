@@ -174,36 +174,37 @@ public void Initialize()
         {
             GroupId = value.GroupId;
             _settingsService.CurrentGroupId = value.GroupId;
-            _settingsService.Settings.GroupId = value.GroupId; // Sync legacy setting
+            _settingsService.Settings.GroupId = value.GroupId;
             _settingsService.Save();
-            
-            // Update API service
+
             _apiService.CurrentGroupId = GroupId;
-            
-            // Update badge scanner if initialized
+
             if (BadgeScannerVM != null)
             {
                 BadgeScannerVM.GroupId = GroupId;
             }
-            
-            // Auto-refresh group info
+
             if (GroupInfoVM != null)
             {
                 _ = GroupInfoVM.RefreshCommand.ExecuteAsync(null);
             }
-            
-            // Restart audit log polling for new group
+
             if (AuditLogVM != null)
             {
                 _ = AuditLogVM.InitializeAsync();
             }
 
-            // Refresh join requests
             if (GroupJoinRequestsVM != null)
             {
                 _ = GroupJoinRequestsVM.RefreshCommand.ExecuteAsync(null);
             }
-            
+
+            // ✅ THIS IS THE KEY LINE
+            if (InviterHubVM?.PendingInvitesVM != null)
+            {
+                _ = InviterHubVM.PendingInvitesVM.LoadAsync(value.GroupId);
+            }
+
             Console.WriteLine($"[DEBUG] Switched to group: {value.GroupName} ({value.GroupId})");
         }
     }
