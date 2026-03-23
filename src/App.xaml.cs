@@ -25,11 +25,8 @@ public partial class App : Application
     private static extern bool FreeConsole();
 
     public static IServiceProvider Services { get; private set; } = null!;
-<<<<<<< Updated upstream
-    public static string Version => "1.2.3";
-=======
     public static string Version => "1.2.5";
->>>>>>> Stashed changes
+
     public static string GitHubRepo => "Velvet-wings-studios/VRCGT";
     public static string BindingLogPath { get; private set; } = string.Empty;
 
