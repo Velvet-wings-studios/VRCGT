@@ -4,7 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 namespace VRCGroupTools.ViewModels;
 
 public partial class InviterHubViewModel : ObservableObject
-{
+{ 
     [ObservableProperty]
     private string _selectedMode = "GroupInviter";
 

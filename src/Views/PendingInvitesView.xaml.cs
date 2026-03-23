@@ -2,10 +2,10 @@ using System.Windows.Controls;
 
 namespace VRCGroupTools.Views;
 
-public partial class InviterHubView : UserControl
+public partial class PendingInvitesView : UserControl
 {
-    public InviterHubView()
+    public PendingInvitesView()
     {
         InitializeComponent();
     }
-} 
+}  

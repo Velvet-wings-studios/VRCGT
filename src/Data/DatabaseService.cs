@@ -270,10 +270,176 @@ CREATE TABLE IF NOT EXISTS PendingGroupInvites (
             "Failed to migrate database schema. Please check the error log.", ex);
     }
 }
+    #region Audit Logs
+    #region InviteHistory
+     
+    public async Task UpsertInviteHistoryAsync(
+        string groupId,
+        string inviteId,
+        string inviterId,
+        string? inviterName,
+        string targetUserId,
+        string? targetName,
+        DateTime sentAtUtc)
+    {
+        await InitializeAsync();
 
-#region Audit Logs
+        using var context = new AppDbContext();
+        var conn = context.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync();
 
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+INSERT INTO InviteHistory
+    (InviteId, GroupId, InviterId, InviterName, TargetUserId, TargetName, SentAtUtc, Outcome, AcceptedAtUtc, UpdatedAtUtc)
+VALUES
+    ($inviteId, $groupId, $inviterId, $inviterName, $targetUserId, $targetName, $sentAtUtc, 'Pending', NULL, $nowUtc)
+ON CONFLICT(GroupId, InviteId) DO UPDATE SET
+    InviterId = excluded.InviterId,
+    InviterName = excluded.InviterName,
+    TargetUserId = excluded.TargetUserId,
+    TargetName = excluded.TargetName,
+    SentAtUtc = excluded.SentAtUtc,
+    UpdatedAtUtc = excluded.UpdatedAtUtc
+;";
+        var now = DateTime.UtcNow.ToString("o");
 
+        cmd.Parameters.Add(MakeParam(cmd, "$inviteId", inviteId));
+        cmd.Parameters.Add(MakeParam(cmd, "$groupId", groupId));
+        cmd.Parameters.Add(MakeParam(cmd, "$inviterId", inviterId));
+        cmd.Parameters.Add(MakeParam(cmd, "$inviterName", (object?)inviterName ?? DBNull.Value));
+        cmd.Parameters.Add(MakeParam(cmd, "$targetUserId", targetUserId));
+        cmd.Parameters.Add(MakeParam(cmd, "$targetName", (object?)targetName ?? DBNull.Value));
+        cmd.Parameters.Add(MakeParam(cmd, "$sentAtUtc", sentAtUtc.ToUniversalTime().ToString("o")));
+        cmd.Parameters.Add(MakeParam(cmd, "$nowUtc", now));
+
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task MarkInviteAcceptedAsync(string groupId, string targetUserId, DateTime acceptedAtUtc)
+    {
+        await InitializeAsync();
+
+        using var context = new AppDbContext();
+        var conn = context.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+UPDATE InviteHistory
+SET Outcome='Accepted', AcceptedAtUtc=$acceptedAtUtc, UpdatedAtUtc=$nowUtc
+WHERE GroupId=$groupId AND TargetUserId=$targetUserId AND Outcome='Pending';
+";
+        cmd.Parameters.Add(MakeParam(cmd, "$groupId", groupId));
+        cmd.Parameters.Add(MakeParam(cmd, "$targetUserId", targetUserId));
+        cmd.Parameters.Add(MakeParam(cmd, "$acceptedAtUtc", acceptedAtUtc.ToUniversalTime().ToString("o")));
+        cmd.Parameters.Add(MakeParam(cmd, "$nowUtc", DateTime.UtcNow.ToString("o")));
+
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task<int> MarkExpiredInvitesAsync(DateTime cutoffUtc)
+    {
+        await InitializeAsync();
+
+        using var context = new AppDbContext();
+        var conn = context.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+UPDATE InviteHistory
+SET Outcome='Expired', UpdatedAtUtc=$nowUtc
+WHERE Outcome='Pending' AND SentAtUtc < $cutoffUtc;
+";
+        cmd.Parameters.Add(MakeParam(cmd, "$cutoffUtc", cutoffUtc.ToUniversalTime().ToString("o")));
+        cmd.Parameters.Add(MakeParam(cmd, "$nowUtc", DateTime.UtcNow.ToString("o")));
+
+        return await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task<List<InviteHistoryEntity>> GetPendingInvitesAsync(string groupId, int limit = 500)
+    {
+        await InitializeAsync();
+        using var context = new AppDbContext();
+        var conn = context.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT InviteId, GroupId, InviterId, InviterName, TargetUserId, TargetName, SentAtUtc, Outcome, AcceptedAtUtc, UpdatedAtUtc
+FROM InviteHistory
+WHERE GroupId=$groupId AND Outcome='Pending'
+ORDER BY SentAtUtc DESC
+LIMIT $limit;
+";
+        cmd.Parameters.Add(MakeParam(cmd, "$groupId", groupId));
+        cmd.Parameters.Add(MakeParam(cmd, "$limit", limit));
+
+        return await ReadInviteHistoryAsync(cmd);
+    }
+
+    public async Task<List<InviteHistoryEntity>> GetInviteHistoryAsync(string groupId, int limit = 5000)
+    {
+        await InitializeAsync();
+        using var context = new AppDbContext();
+        var conn = context.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+SELECT InviteId, GroupId, InviterId, InviterName, TargetUserId, TargetName, SentAtUtc, Outcome, AcceptedAtUtc, UpdatedAtUtc
+FROM InviteHistory
+WHERE GroupId=$groupId
+ORDER BY SentAtUtc DESC
+LIMIT $limit;
+";
+        cmd.Parameters.Add(MakeParam(cmd, "$groupId", groupId));
+        cmd.Parameters.Add(MakeParam(cmd, "$limit", limit));
+
+        return await ReadInviteHistoryAsync(cmd);
+    }
+
+    private static async Task<List<InviteHistoryEntity>> ReadInviteHistoryAsync(System.Data.Common.DbCommand cmd)
+    {
+        static DateTime ParseUtc(string? s)
+            => DateTimeOffset.TryParse(s, out var dto) ? dto.UtcDateTime : DateTime.UtcNow;
+
+        var list = new List<InviteHistoryEntity>();
+        using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync())
+        {
+            list.Add(new InviteHistoryEntity
+            {
+                InviteId = r.GetString(0),
+                GroupId = r.GetString(1),
+                InviterId = r.GetString(2),
+                InviterName = r.IsDBNull(3) ? null : r.GetString(3),
+                TargetUserId = r.GetString(4),
+                TargetName = r.IsDBNull(5) ? null : r.GetString(5),
+                SentAtUtc = ParseUtc(r.GetString(6)),
+                Outcome = r.GetString(7),
+                AcceptedAtUtc = r.IsDBNull(8) ? null : ParseUtc(r.GetString(8)),
+                UpdatedAtUtc = ParseUtc(r.GetString(9))
+            });
+        }
+        return list;
+    }
+
+    private static System.Data.Common.DbParameter MakeParam(System.Data.Common.DbCommand cmd, string name, object value)
+    {
+        var p = cmd.CreateParameter();
+        p.ParameterName = name;
+        p.Value = value;
+        return p;
+    }
+
+    #endregion
     public async Task<List<AuditLogEntity>> GetAuditLogsAsync(string groupId, int limit = 1000, int offset = 0)
     {
         using var context = new AppDbContext();

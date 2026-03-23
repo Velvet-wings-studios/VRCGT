@@ -24,9 +24,8 @@ public partial class App : Application
     [DllImport("kernel32.dll")]
     private static extern bool FreeConsole();
 
-    public static IServiceProvider Services { get; private set; } = null!;
+    public static IServiceProvider Services { get; private set; } = null!; 
     public static string Version => "1.2.5";
-
     public static string GitHubRepo => "Velvet-wings-studios/VRCGT";
     public static string BindingLogPath { get; private set; } = string.Empty;
 
