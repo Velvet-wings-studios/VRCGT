@@ -64,10 +64,20 @@ Task<(bool Found, DateTime? InvitedAtUtc, string? InviterId, string? InviterName
     Task SaveSettingAsync<T>(string key, T value) where T : class;
 
     // Invite History
-    Task UpsertInviteHistoryAsync(InviteHistoryEntity entry);
-    Task MarkInviteAcceptedAsync(string groupId, string userId);
-    Task MarkExpiredInvitesAsync(string groupId, DateTime now);
-    Task<List<InviteHistoryEntity>> GetInviteHistoryAsync(string groupId);
+    Task UpsertInviteHistoryAsync(
+        string groupId,
+        string inviteId,
+        string inviterId,
+        string? inviterName,
+        string targetUserId,
+        string? targetName,
+        DateTime sentAtUtc);
+
+    Task MarkInviteAcceptedAsync(string groupId, string targetUserId, DateTime acceptedAtUtc);
+
+    Task<int> MarkExpiredInvitesAsync(DateTime cutoffUtc);
+
+    Task<List<InviteHistoryEntity>> GetInviteHistoryAsync(string groupId, int limit = 5000);
 }
 
 public class DatabaseService : IDatabaseService
@@ -1016,7 +1026,7 @@ WHERE InvitedAtUtc < $cutoffUtc;
 
     public Task UpsertInviteHistoryAsync(InviteHistoryEntity entry)
     {
-        // Minimal stub â€“ prevents build failure
+        // Minimal stub – prevents build failure
         // TODO: implement persistence
         return Task.CompletedTask;
     }
@@ -1035,7 +1045,7 @@ WHERE InvitedAtUtc < $cutoffUtc;
 
     public Task<List<InviteHistoryEntity>> GetInviteHistoryAsync(string groupId)
     {
-        // Minimal stub â€“ return empty list so UI can bind safely
+        // Minimal stub – return empty list so UI can bind safely
         return Task.FromResult(new List<InviteHistoryEntity>());
     }
 
