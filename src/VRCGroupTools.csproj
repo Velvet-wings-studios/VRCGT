@@ -27,7 +27,7 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
-
+ 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.14" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
