@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -10,9 +10,9 @@
     <AssemblyName>VRCGroupTools</AssemblyName>
     <DefineConstants>DEBUG</DefineConstants>
     <RootNamespace>VRCGroupTools</RootNamespace>
-    <Version>1.2.4</Version>
-    <AssemblyVersion>1.2.4</AssemblyVersion>
-    <FileVersion>1.2.4</FileVersion>
+    <Version>1.2.3</Version>
+    <AssemblyVersion>1.2.3</AssemblyVersion>
+    <FileVersion>1.2.3</FileVersion>
     <Company>Velvet-wings-studios</Company>
     <Product>VRC Group Tools</Product>
     <Authors>0xE69 Raven</Authors>

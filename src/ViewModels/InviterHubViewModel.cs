@@ -20,26 +20,16 @@ public partial class InviterHubViewModel : ObservableObject
     [ObservableProperty]
     private GameLogViewModel? _gameLogVM;
 
-    [ObservableProperty]
-    private InviteStatsViewModel? _inviteStatsVM;
-
-    [ObservableProperty]
-    private PendingInvitesViewModel? _pendingInvitesVM;
-
     public InviterHubViewModel(
-     InviteToGroupViewModel inviteToGroupVM,
-     InstanceInviterViewModel instanceInviterVM,
-     FriendInviterViewModel friendInviterVM,
-     GameLogViewModel gameLogVM,
-     InviteStatsViewModel inviteStatsVM,
-     PendingInvitesViewModel pendingInvitesVM)
+        InviteToGroupViewModel inviteToGroupVM,
+        InstanceInviterViewModel instanceInviterVM,
+        FriendInviterViewModel friendInviterVM,
+        GameLogViewModel gameLogVM)
     {
         InviteToGroupVM = inviteToGroupVM;
         InstanceInviterVM = instanceInviterVM;
         FriendInviterVM = friendInviterVM;
         GameLogVM = gameLogVM;
-        InviteStatsVM = inviteStatsVM;
-        PendingInvitesVM = pendingInvitesVM;
     }
 
     [RelayCommand]
