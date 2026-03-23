@@ -128,3 +128,4 @@ Release/
 release/
 src/bin/Release/
 src/bin/Publish/
+vrcgt/x64/Debug/.NETFramework,Version=v4.7.2.AssemblyAttributes.cpp
