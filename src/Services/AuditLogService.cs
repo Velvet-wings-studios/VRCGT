@@ -9,6 +9,7 @@ using System.Timers;
 using VRCGroupTools.Data;
 using VRCGroupTools.Data.Models;
 using Timer = System.Timers.Timer;
+using VRCGroupTools.Helpers;
 
 namespace VRCGroupTools.Services;
 
@@ -83,6 +84,7 @@ public class AuditLogService : IAuditLogService, IDisposable
     private readonly Dictionary<string, (DateTime invitedAt, string? inviterId, string? inviterName)> _pendingInviteByName =
     new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan PendingInviteTtl = TimeSpan.FromDays(7);
+    private readonly InviteHistoryService? _inviteHistory;
 
     public event EventHandler<List<AuditLogEntry>>? NewLogsReceived;
     public event EventHandler<string>? StatusChanged;
@@ -93,11 +95,12 @@ public class AuditLogService : IAuditLogService, IDisposable
 
     // ✅ Original constructor (kept) — does not require IDatabaseService
     public AuditLogService(
-        IVRChatApiService apiService,
-        ICacheService cacheService,
-        IDiscordWebhookService discordService,
-        ISettingsService settingsService,
-        ISecurityMonitorService? securityMonitor = null)
+    IVRChatApiService apiService,
+    ICacheService cacheService,
+    IDiscordWebhookService discordService,
+    ISettingsService settingsService,
+    InviteHistoryService inviteHistory,
+    ISecurityMonitorService? securityMonitor = null)
     {
         _apiService = apiService;
         _cacheService = cacheService;
@@ -105,16 +108,18 @@ public class AuditLogService : IAuditLogService, IDisposable
         _settingsService = settingsService;
         _securityMonitor = securityMonitor;
         _databaseService = null;
+        _inviteHistory = inviteHistory;
     }
 
     // ✅ New overload — DI will use this if IDatabaseService is registered
     public AuditLogService(
-        IVRChatApiService apiService,
-        ICacheService cacheService,
-        IDiscordWebhookService discordService,
-        ISettingsService settingsService,
-        IDatabaseService databaseService,
-        ISecurityMonitorService? securityMonitor = null)
+    IVRChatApiService apiService,
+    ICacheService cacheService,
+    IDiscordWebhookService discordService,
+    ISettingsService settingsService,
+    IDatabaseService databaseService,
+    InviteHistoryService inviteHistory,
+    ISecurityMonitorService? securityMonitor = null)
     {
         _apiService = apiService;
         _cacheService = cacheService;
@@ -122,6 +127,7 @@ public class AuditLogService : IAuditLogService, IDisposable
         _settingsService = settingsService;
         _securityMonitor = securityMonitor;
         _databaseService = databaseService;
+        _inviteHistory = inviteHistory;
     }
 
     public async Task StartPollingAsync(string groupId)
@@ -145,6 +151,12 @@ public class AuditLogService : IAuditLogService, IDisposable
         {
             StatusChanged?.Invoke(this, "No cached logs. Click 'Fetch History' to download.");
         }
+        // ✅ STEP 3C — expire old invites for stats
+        if (_inviteHistory != null)
+        {
+            await _inviteHistory.ExpireOldInvitesAsync();
+        }
+
 
         var pollingIntervalMs = _settingsService.Settings.AuditLogPollingIntervalSeconds * 1000;
         _pollingTimer?.Dispose();
@@ -228,11 +240,18 @@ public class AuditLogService : IAuditLogService, IDisposable
             !string.Equals(log.EventType, "group.user.invite", StringComparison.OrdinalIgnoreCase))
             return;
 
+        // ✅ STEP 3A — record invite sent
+        if (_inviteHistory != null)
+        {
+            await _inviteHistory.RecordInviteSentAsync(_currentGroupId, log);
+        }
+
+        //
         // 1) Cache-layer store (if implemented)
 
 
-// 2) Direct DB store (if available)
-if (_databaseService != null)
+        // 2) Direct DB store (if available)
+        if (_databaseService != null)
 {
     await _databaseService.UpsertPendingInviteAsync(
         _currentGroupId,
@@ -319,14 +338,15 @@ if (!string.IsNullOrWhiteSpace(log.TargetName))
     string? inviterName,
     string? inviterId)
 {
-    var whoName = joinLog.TargetName ?? "User";
-    var whoId = joinLog.TargetId ?? "";
+    // ✅ Normalize who joined (join events often put the joiner in Actor*, not Target*)
+    var normalized = AuditLogNormalizer.Normalize(joinLog);
+    var whoName = normalized.PrimaryName;
+    var whoId = normalized.PrimaryId;
 
     var desc = !string.IsNullOrWhiteSpace(inviterName)
         ? $"{whoName} accepted an invite from {inviterName}"
         : $"{whoName} accepted a group invite";
 
-    // include inviterName in seed so derived ID stays stable per inviter (if available)
     var seed = $"derived|invite.accept|{groupId}|{whoId}|{whoName}|{invitedAtUtc:o}|{joinLog.Id}|{inviterName}";
     var derivedId = ComputeSyntheticId(seed);
 
@@ -338,10 +358,20 @@ if (!string.IsNullOrWhiteSpace(log.TargetName))
         invitedAtUtc,
         joinedAtUtc = joinLog.CreatedAt,
         joinLogId = joinLog.Id,
-        targetId = joinLog.TargetId,
-        targetName = joinLog.TargetName,
-        inviterName,
-		inviterId
+
+        // Keep original join log fields for debugging
+        join_actorId = joinLog.ActorId,
+        join_actorName = joinLog.ActorName,
+        join_targetId = joinLog.TargetId,
+        join_targetName = joinLog.TargetName,
+
+        // Normalized identity
+        whoId,
+        whoName,
+
+        // Inviter identity (from pending invite store)
+        inviterId,
+        inviterName
     });
 
     return new AuditLogEntry
@@ -350,8 +380,8 @@ if (!string.IsNullOrWhiteSpace(log.TargetName))
         EventType = "group.invite.accept",
         CreatedAt = joinLog.CreatedAt,
 
-        // "actor" here is the joiner (consistent with how your UI shows it)
-        ActorId = joinLog.TargetId,
+        // ✅ Actor is the joiner (normalized)
+        ActorId = whoId,
         ActorName = whoName,
 
         TargetId = null,
@@ -424,15 +454,30 @@ if (!string.IsNullOrWhiteSpace(log.TargetName))
                 {
                     if (string.Equals(log.EventType, "group.user.join", StringComparison.OrdinalIgnoreCase))
                     {
-                       var (found, invitedAt, inviterId, inviterName) = await TryConsumePendingInviteAsync(log);
-if (found)
-{
-    var derived = CreateInviteAcceptedDerivedLog(_currentGroupId, log, invitedAt, inviterName, inviterId);
-    derivedLogs.Add(derived);
-    orderedToSend.Add(derived); // send accept before join
-}
+                        var (found, invitedAt, inviterId, inviterName) = await TryConsumePendingInviteAsync(log);
+
+                        if (found)
+                        {
+                            var derived = CreateInviteAcceptedDerivedLog(_currentGroupId!, log, invitedAt, inviterName, inviterId);
+                            derivedLogs.Add(derived);
+                            orderedToSend.Add(derived); // send accept before join
+
+                            // ✅ record acceptance using normalized joiner id (ActorId usually)
+                            if (_inviteHistory != null)
+                            {
+                                var whoId = AuditLogNormalizer.Normalize(log).PrimaryId;
+                                if (!string.IsNullOrWhiteSpace(whoId))
+                                {
+                                    await _inviteHistory.MarkInviteAcceptedAsync(
+                                        _currentGroupId!,
+                                        whoId,
+                                        log.CreatedAt);
+                                }
+                            }
+                        }
                     }
 
+                    // ✅ Always add the original log
                     orderedToSend.Add(log);
                 }
 
@@ -736,8 +781,8 @@ if (found)
 
         return log.EventType switch
         {
-            "group.user.join" => $"{target} joined the group",
-            "group.user.leave" => $"{target} left the group",
+            "group.user.join" => $"{actor} joined the group",
+            "group.user.leave" => $"{actor} left the group",
             "group.user.kick" => $"{actor} kicked {target}",
             "group.user.ban" => $"{actor} banned {target}",
             "group.user.unban" => $"{actor} unbanned {target}",
