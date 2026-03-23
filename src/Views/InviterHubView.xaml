@@ -43,6 +43,8 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
                     <Button Grid.Column="0" 
@@ -144,6 +146,22 @@
                                       Margin="0,4,0,0"/>
                         </StackPanel>
                     </Button>
+
+                    <Button Grid.Column="4"
+                            Command="{Binding SelectModeCommand}"
+                            CommandParameter="InviteStats"
+                            Margin="5,0"
+                            Height="60">
+                        <TextBlock Text="📊 Stats" />
+                    </Button>
+
+                    <Button Grid.Column="5"
+                            Command="{Binding SelectModeCommand}"
+                            CommandParameter="PendingInvites"
+                            Margin="5,0,0,0"
+                            Height="60">
+                        <TextBlock Text="⏳ Pending" />
+                    </Button>
                 </Grid>
             </Grid>
         </Border>
@@ -164,6 +182,14 @@
                     <DataTemplate DataType="{x:Type viewmodels:GameLogViewModel}">
                         <views:GameLogView/>
                     </DataTemplate>
+
+                    <DataTemplate DataType="{x:Type viewmodels:InviteStatsViewModel}">
+                        <views:InviteStatsView />
+                    </DataTemplate>
+
+                    <DataTemplate DataType="{x:Type viewmodels:PendingInvitesViewModel}">
+                        <views:PendingInvitesView />
+                    </DataTemplate>
                 </ContentControl.Resources>
                 <ContentControl.Style>
                     <Style TargetType="ContentControl">
@@ -180,6 +206,12 @@
                             </DataTrigger>
                             <DataTrigger Binding="{Binding SelectedMode}" Value="GameLog">
                                 <Setter Property="Content" Value="{Binding GameLogVM}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding SelectedMode}" Value="InviteStats">
+                                <Setter Property="Content" Value="{Binding InviteStatsVM}" />
+                            </DataTrigger>                           
+                            <DataTrigger Binding="{Binding SelectedMode}" Value="PendingInvites">
+                                <Setter Property="Content" Value="{Binding PendingInvitesVM}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>

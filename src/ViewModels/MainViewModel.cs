@@ -162,6 +162,8 @@ public void Initialize()
     {
         _ = GroupInfoVM!.RefreshCommand.ExecuteAsync(null);
         _ = AuditLogVM!.InitializeAsync();
+            // ✅ LOAD INVITER HUB DATA
+            _ = InviterHubVM!.LoadAsync(GroupId);
     }
 
     Console.WriteLine("[DEBUG] MainViewModel.Initialize() completed");
@@ -202,6 +204,11 @@ public void Initialize()
             if (GroupJoinRequestsVM != null)
             {
                 _ = GroupJoinRequestsVM.RefreshCommand.ExecuteAsync(null);
+            }
+            // Restart audit log polling for new group
+            if (InviterHubVM != null)
+            {
+                _ = InviterHubVM.LoadAsync(GroupId);
             }
             
             Console.WriteLine($"[DEBUG] Switched to group: {value.GroupName} ({value.GroupId})");

@@ -2,7 +2,7 @@ using System;
 
 namespace VRCGroupTools.Data.Models;
 
-public class InviteHistoryEntity
+public class InviteHistoryRecord
 {
     public string InviteId { get; set; } = "";      // invite log id (or synthetic)
     public string GroupId { get; set; } = "";

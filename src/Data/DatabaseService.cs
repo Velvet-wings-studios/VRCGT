@@ -1,12 +1,13 @@
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.EntityFrameworkCore;
 using VRCGroupTools.Data.Models;
-using System;
+using VRCGroupTools.Models;
 
 namespace VRCGroupTools.Data;
 
@@ -77,7 +78,7 @@ Task<(bool Found, DateTime? InvitedAtUtc, string? InviterId, string? InviterName
 
     Task<int> MarkExpiredInvitesAsync(DateTime cutoffUtc);
 
-    Task<List<InviteHistoryEntity>> GetInviteHistoryAsync(string groupId, int limit = 5000);
+    Task<List<VRCGroupTools.Models.InviteHistoryRecord>> GetInviteHistoryAsync(string groupId, int limit = 5000);
 }
 
 public class DatabaseService : IDatabaseService
@@ -286,7 +287,7 @@ CREATE TABLE IF NOT EXISTS PendingGroupInvites (
             "Failed to migrate database schema. Please check the error log.", ex);
     }
 }
-    #region Audit Logs
+    
     #region InviteHistory
      
     public async Task UpsertInviteHistoryAsync(
@@ -377,7 +378,7 @@ WHERE Outcome='Pending' AND SentAtUtc < $cutoffUtc;
         return await cmd.ExecuteNonQueryAsync();
     }
 
-    public async Task<List<InviteHistoryEntity>> GetPendingInvitesAsync(string groupId, int limit = 500)
+    public async Task<List<VRCGroupTools.Models.InviteHistoryRecord>> GetInviteHistoryAsync(string groupId, int limit = 5000)
     {
         await InitializeAsync();
         using var context = new AppDbContext();
@@ -387,29 +388,8 @@ WHERE Outcome='Pending' AND SentAtUtc < $cutoffUtc;
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-SELECT InviteId, GroupId, InviterId, InviterName, TargetUserId, TargetName, SentAtUtc, Outcome, AcceptedAtUtc, UpdatedAtUtc
-FROM InviteHistory
-WHERE GroupId=$groupId AND Outcome='Pending'
-ORDER BY SentAtUtc DESC
-LIMIT $limit;
-";
-        cmd.Parameters.Add(MakeParam(cmd, "$groupId", groupId));
-        cmd.Parameters.Add(MakeParam(cmd, "$limit", limit));
-
-        return await ReadInviteHistoryAsync(cmd);
-    }
-
-    public async Task<List<InviteHistoryEntity>> GetInviteHistoryAsync(string groupId, int limit = 5000)
-    {
-        await InitializeAsync();
-        using var context = new AppDbContext();
-        var conn = context.Database.GetDbConnection();
-        if (conn.State != System.Data.ConnectionState.Open)
-            await conn.OpenAsync();
-
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-SELECT InviteId, GroupId, InviterId, InviterName, TargetUserId, TargetName, SentAtUtc, Outcome, AcceptedAtUtc, UpdatedAtUtc
+SELECT InviteId, GroupId, InviterId, InviterName, TargetUserId, TargetName,
+       SentAtUtc, Outcome, AcceptedAtUtc, UpdatedAtUtc
 FROM InviteHistory
 WHERE GroupId=$groupId
 ORDER BY SentAtUtc DESC
@@ -420,28 +400,31 @@ LIMIT $limit;
 
         return await ReadInviteHistoryAsync(cmd);
     }
+    private static InviteOutcome ParseOutcome(string s)
+    => Enum.TryParse(s, ignoreCase: true, out InviteOutcome o)
+        ? o
+        : InviteOutcome.Pending;
 
-    private static async Task<List<InviteHistoryEntity>> ReadInviteHistoryAsync(System.Data.Common.DbCommand cmd)
+    private static async Task<List<VRCGroupTools.Models.InviteHistoryRecord>> ReadInviteHistoryAsync(System.Data.Common.DbCommand cmd)
     {
         static DateTime ParseUtc(string? s)
             => DateTimeOffset.TryParse(s, out var dto) ? dto.UtcDateTime : DateTime.UtcNow;
 
-        var list = new List<InviteHistoryEntity>();
+        var list = new List<VRCGroupTools.Models.InviteHistoryRecord>();
         using var r = await cmd.ExecuteReaderAsync();
         while (await r.ReadAsync())
         {
-            list.Add(new InviteHistoryEntity
+            list.Add(new VRCGroupTools.Models.InviteHistoryRecord
             {
                 InviteId = r.GetString(0),
                 GroupId = r.GetString(1),
                 InviterId = r.GetString(2),
-                InviterName = r.IsDBNull(3) ? null : r.GetString(3),
+                InviterName = r.IsDBNull(3) ? "" : r.GetString(3),
                 TargetUserId = r.GetString(4),
-                TargetName = r.IsDBNull(5) ? null : r.GetString(5),
+                TargetName = r.IsDBNull(5) ? "" : r.GetString(5),
                 SentAtUtc = ParseUtc(r.GetString(6)),
-                Outcome = r.GetString(7),
-                AcceptedAtUtc = r.IsDBNull(8) ? null : ParseUtc(r.GetString(8)),
-                UpdatedAtUtc = ParseUtc(r.GetString(9))
+                Outcome = ParseOutcome(r.GetString(7)),
+                AcceptedAtUtc = r.IsDBNull(8) ? null : ParseUtc(r.GetString(8))
             });
         }
         return list;
@@ -456,6 +439,8 @@ LIMIT $limit;
     }
 
     #endregion
+
+    #region Audit Logs
     public async Task<List<AuditLogEntity>> GetAuditLogsAsync(string groupId, int limit = 1000, int offset = 0)
     {
         using var context = new AppDbContext();
@@ -1021,33 +1006,5 @@ WHERE InvitedAtUtc < $cutoffUtc;
     }
 
     #endregion
-
-    #region Invite History
-
-    public Task UpsertInviteHistoryAsync(InviteHistoryEntity entry)
-    {
-        // Minimal stub – prevents build failure
-        // TODO: implement persistence
-        return Task.CompletedTask;
-    }
-
-    public Task MarkInviteAcceptedAsync(string groupId, string userId)
-    {
-        // Minimal stub
-        return Task.CompletedTask;
-    }
-
-    public Task MarkExpiredInvitesAsync(string groupId, DateTime now)
-    {
-        // Minimal stub
-        return Task.CompletedTask;
-    }
-
-    public Task<List<InviteHistoryEntity>> GetInviteHistoryAsync(string groupId)
-    {
-        // Minimal stub – return empty list so UI can bind safely
-        return Task.FromResult(new List<InviteHistoryEntity>());
-    }
-
-    #endregion
+    
 }

@@ -1,9 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
+using VRCGroupTools.Models;
 using VRCGroupTools.Services;
 
 namespace VRCGroupTools.ViewModels;
- 
+
 public partial class InviteStatsViewModel : ObservableObject
 {
     private readonly InviteHistoryService _history;
@@ -30,10 +31,15 @@ public partial class InviteStatsViewModel : ObservableObject
                 var first = g.First();
                 return new InviteStatsRow
                 {
-                    InviterName = first.InviterName ?? "Unknown",
+                    InviterName = string.IsNullOrWhiteSpace(first.InviterName)
+                        ? "Unknown"
+                        : first.InviterName,
+
                     Sent = g.Count(),
-                    Accepted = g.Count(x => x.Outcome == "Accepted"),
-                    Expired = g.Count(x => x.Outcome == "Expired")
+
+                    Accepted = g.Count(x => x.Outcome == InviteOutcome.Accepted),
+
+                    Expired = g.Count(x => x.Outcome == InviteOutcome.Expired)
                 };
             })
             .OrderByDescending(r => r.Accepted);

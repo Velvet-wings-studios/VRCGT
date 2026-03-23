@@ -278,7 +278,17 @@ public partial class App : Application
         services.AddTransient<InviterHubViewModel>();
         services.AddTransient<GroupJoinRequestsViewModel>();
         services.AddTransient<AutoCloserViewModel>();
-        
+
+        // Invite history
+        services.AddSingleton<InviteHistoryService>();
+
+
+        // NEW — Inviter Hub children
+        services.AddTransient<InviteStatsViewModel>();
+        services.AddTransient<PendingInvitesViewModel>();
+
+
+
         LoggingService.Debug("APP", "All services registered");
     }
 
