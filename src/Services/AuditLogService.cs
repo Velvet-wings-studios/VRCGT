@@ -421,7 +421,7 @@ if (!string.IsNullOrWhiteSpace(log.TargetName))
                 var orderedToSend = new List<AuditLogEntry>();
 
                 foreach (var log in sendCandidates.OrderBy(l => l.CreatedAt))
-                {
+                { 
                     if (string.Equals(log.EventType, "group.user.join", StringComparison.OrdinalIgnoreCase))
                     {
                        var (found, invitedAt, inviterId, inviterName) = await TryConsumePendingInviteAsync(log);

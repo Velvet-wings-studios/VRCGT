@@ -82,7 +82,7 @@ public class AppDbContext : DbContext
 
         // RoleSnapshot configuration (Kill Switch)
         modelBuilder.Entity<RoleSnapshotEntity>(entity =>
-        {
+        { 
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.SnapshotId);
             entity.HasIndex(e => e.GroupId);

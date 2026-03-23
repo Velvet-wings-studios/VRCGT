@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 namespace VRCGroupTools.Data.Models;
 
 public class InvitedUser
-{
+{ 
     [Key]
     public int Id { get; set; }
     
