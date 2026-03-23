@@ -62,6 +62,12 @@ Task<(bool Found, DateTime? InvitedAtUtc, string? InviterId, string? InviterName
     Task<string?> GetSettingAsync(string key);
     Task<T?> GetSettingAsync<T>(string key) where T : class;
     Task SaveSettingAsync<T>(string key, T value) where T : class;
+
+    // Invite History
+    Task UpsertInviteHistoryAsync(InviteHistoryEntity entry);
+    Task MarkInviteAcceptedAsync(string groupId, string userId);
+    Task MarkExpiredInvitesAsync(string groupId, DateTime now);
+    Task<List<InviteHistoryEntity>> GetInviteHistoryAsync(string groupId);
 }
 
 public class DatabaseService : IDatabaseService
@@ -1002,6 +1008,35 @@ WHERE InvitedAtUtc < $cutoffUtc;
     {
         var json = JsonSerializer.Serialize(value);
         await SaveSettingAsync(key, json);
+    }
+
+    #endregion
+
+    #region Invite History
+
+    public Task UpsertInviteHistoryAsync(InviteHistoryEntity entry)
+    {
+        // Minimal stub – prevents build failure
+        // TODO: implement persistence
+        return Task.CompletedTask;
+    }
+
+    public Task MarkInviteAcceptedAsync(string groupId, string userId)
+    {
+        // Minimal stub
+        return Task.CompletedTask;
+    }
+
+    public Task MarkExpiredInvitesAsync(string groupId, DateTime now)
+    {
+        // Minimal stub
+        return Task.CompletedTask;
+    }
+
+    public Task<List<InviteHistoryEntity>> GetInviteHistoryAsync(string groupId)
+    {
+        // Minimal stub – return empty list so UI can bind safely
+        return Task.FromResult(new List<InviteHistoryEntity>());
     }
 
     #endregion
