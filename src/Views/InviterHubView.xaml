@@ -43,8 +43,6 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
                     <Button Grid.Column="0" 
@@ -146,56 +144,6 @@
                                       Margin="0,4,0,0"/>
                         </StackPanel>
                     </Button>
-
-                    <Button Grid.Column="4"
-                           Command="{Binding SelectModeCommand}"
-                           CommandParameter="InviteStats"
-                           Margin="5,0"
-                           Height="60">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
-                               <Setter Property="Background" Value="#424242"/>
-                               <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedMode}" Value="InviteStats">
-                                       <Setter Property="Background" Value="#7C4DFF"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                        <StackPanel Orientation="Vertical">
-                            <TextBlock Text="📊" FontSize="20" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Invite Stats"
-                                      FontSize="12"
-                                      FontWeight="SemiBold"
-                                      HorizontalAlignment="Center"
-                                      Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Button>
-
-                    <Button Grid.Column="5"
-                           Command="{Binding SelectModeCommand}"
-                           CommandParameter="PendingInvites"
-                           Margin="5,0,0,0"
-                           Height="60">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
-                               <Setter Property="Background" Value="#424242"/>
-                               <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedMode}" Value="PendingInvites">
-                                      <Setter Property="Background" Value="#7C4DFF"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                        <StackPanel Orientation="Vertical">
-                            <TextBlock Text="⏳" FontSize="20" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Pending Invites"
-                                      FontSize="12"
-                                      FontWeight="SemiBold"
-                                      HorizontalAlignment="Center"
-                                      Margin="0,4,0,0"/>
-                        </StackPanel>
-                    </Button>
                 </Grid>
             </Grid>
         </Border>
@@ -216,12 +164,6 @@
                     <DataTemplate DataType="{x:Type viewmodels:GameLogViewModel}">
                         <views:GameLogView/>
                     </DataTemplate>
-                    <DataTemplate DataType="{x:Type viewmodels:InviteStatsViewModel}">
-                        <views:InviteStatsView/>
-                    </DataTemplate>
-                    <DataTemplate DataType="{x:Type viewmodels:PendingInvitesViewModel}">
-                        <views:PendingInvitesView/>
-                    </DataTemplate>
                 </ContentControl.Resources>
                 <ContentControl.Style>
                     <Style TargetType="ContentControl">
@@ -238,12 +180,6 @@
                             </DataTrigger>
                             <DataTrigger Binding="{Binding SelectedMode}" Value="GameLog">
                                 <Setter Property="Content" Value="{Binding GameLogVM}"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding SelectedMode}" Value="InviteStats">
-                                <Setter Property="Content" Value="{Binding InviteStatsVM}"/>
-                            </DataTrigger>
-                            <DataTrigger Binding="{Binding SelectedMode}" Value="PendingInvites">
-                                <Setter Property="Content" Value="{Binding PendingInvitesVM}"/>
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
